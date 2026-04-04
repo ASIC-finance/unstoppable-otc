@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { formatUnits, parseUnits } from 'viem'
 import { TokenBadge } from './TokenBadge'
@@ -57,18 +57,29 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
     }
   } catch { /* */ }
 
-  const { allowance, approve, isApproving, refetchAllowance } = useTokenAllowance(
+  const { allowance, approve, isApproving, refetchAllowance, approvalConfirmed } = useTokenAllowance(
     buyTokenAddr, address, pairAddress,
   )
 
   const needsApproval = buyAmountNeeded > 0n && allowance < buyAmountNeeded
 
-  if (isSuccess) {
-    refetch?.()
+  // P2 fix: refetch allowance on confirmation, not a timer
+  useEffect(() => { if (approvalConfirmed) refetchAllowance() }, [approvalConfirmed, refetchAllowance])
+
+  // P3 fix: move side effects out of render into useEffect
+  const [filled, setFilled] = useState(false)
+  useEffect(() => {
+    if (isSuccess && !filled) {
+      setFilled(true)
+      refetch?.()
+    }
+  }, [isSuccess, filled, refetch])
+
+  if (filled) {
     return (
       <div className="flex items-center gap-2">
         <span className="text-emerald-400 text-sm">Filled!</span>
-        <button onClick={() => { reset(); setFillAmount('') }} className="text-xs text-gray-400 hover:text-gray-200">New fill</button>
+        <button onClick={() => { reset(); setFillAmount(''); setFilled(false) }} className="text-xs text-gray-400 hover:text-gray-200">New fill</button>
       </div>
     )
   }
@@ -82,7 +93,7 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
         <span className="text-xs text-gray-400">Cost: {formatTokenAmount(buyAmountNeeded, bd)}</span>
       )}
       {needsApproval ? (
-        <button onClick={() => { approve(); setTimeout(() => refetchAllowance(), 3000) }} disabled={isApproving}
+        <button onClick={() => approve()} disabled={isApproving}
           className="px-3 py-1 rounded text-sm bg-yellow-600 hover:bg-yellow-500 text-white disabled:opacity-50"
         >{isApproving ? 'Approving...' : 'Approve'}</button>
       ) : (

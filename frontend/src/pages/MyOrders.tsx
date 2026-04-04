@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
 import { isAddress } from 'viem'
 import { useMakerOrderCount, useMakerOrders, usePairTokens } from '../hooks/useOrders'
@@ -23,17 +23,25 @@ export function MyOrders() {
   const pair = pairExists ? pairAddr as `0x${string}` : undefined
 
   const { token0, token1 } = usePairTokens(pair)
-  const { data: makerCount } = useMakerOrderCount(pair, address)
+  const { data: makerCount, refetch: refetchCount } = useMakerOrderCount(pair, address)
   const total = Number(makerCount ?? 0n)
 
   const offset = page * PAGE_SIZE
-  const { data, isLoading, refetch } = useMakerOrders(pair, address, offset, PAGE_SIZE)
+  const { data, isLoading, refetch: refetchOrders } = useMakerOrders(pair, address, offset, PAGE_SIZE)
   const { cancelOrder, isPending: isCancelling, isSuccess, reset } = useCancelOrder()
+
+  const refetch = () => { refetchOrders(); refetchCount() }
 
   const orderIds = data ? [...data[0]] : []
   const orders = data ? [...data[1]] : []
 
-  if (isSuccess) { reset(); refetch() }
+  // P3 fix: move cancel-success side effects into useEffect
+  useEffect(() => {
+    if (isSuccess) {
+      reset()
+      refetch()
+    }
+  }, [isSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!isConnected) {
     return (
@@ -67,7 +75,7 @@ export function MyOrders() {
             Pair: {token0 && <TokenBadge address={token0} />} / {token1 && <TokenBadge address={token1} />}
             <span className="text-gray-600">({total} orders)</span>
           </div>
-          <button onClick={() => refetch()}
+          <button onClick={refetch}
             className="px-3 py-1 rounded text-sm bg-gray-800 hover:bg-gray-700 text-gray-300">Refresh</button>
         </div>
       )}

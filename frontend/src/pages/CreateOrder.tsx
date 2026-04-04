@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAccount, useReadContract } from 'wagmi'
-import { erc20Abi, parseUnits, isAddress } from 'viem'
+import { erc20Abi, isAddress } from 'viem'
 import { useTokenInfo } from '../hooks/useTokenInfo'
 import { useTokenLogo } from '../hooks/useTokenLogo'
 import { useTokenAllowance } from '../hooks/useTokenAllowance'
@@ -8,7 +8,7 @@ import { useCreateOrder } from '../hooks/useCreateOrder'
 import { usePairAddress, useCreatePair } from '../hooks/useFactory'
 import { usePairTokens } from '../hooks/useOrders'
 import { formatTokenAmount } from '../utils/format'
-import { isValidTokenAddress, isValidAmount } from '../utils/validation'
+import { isValidTokenAddress, tryParseAmount } from '../utils/validation'
 
 export function CreateOrder() {
   const { address, isConnected } = useAccount()
@@ -60,20 +60,20 @@ export function CreateOrder() {
   const sellDecimals = sellInfo.decimals ?? 18
   const buyDecimals = buyInfo.decimals ?? 18
 
-  let parsedSellAmount = 0n
-  try { if (isValidAmount(sellAmount)) parsedSellAmount = parseUnits(sellAmount, sellDecimals) } catch { /* */ }
+  const parsedSellAmount = tryParseAmount(sellAmount, sellDecimals) ?? 0n
+  const parsedBuyAmount = tryParseAmount(buyAmount, buyDecimals) ?? 0n
 
   const needsApproval = pair && parsedSellAmount > 0n && allowance < parsedSellAmount
 
   const canCreate = isConnected && pair
     && isValidTokenAddress(sellToken) && isValidTokenAddress(buyToken)
     && sellToken.toLowerCase() !== buyToken.toLowerCase()
-    && isValidAmount(sellAmount) && isValidAmount(buyAmount)
-    && !needsApproval && parsedSellAmount > 0n
+    && parsedSellAmount > 0n && parsedBuyAmount > 0n
+    && !needsApproval
     && sellBalance !== undefined && parsedSellAmount <= sellBalance
 
   function handleCreate() {
-    if (!pair) return
+    if (!pair || !parsedSellAmount || !parsedBuyAmount) return
     createOrder(pair, sellToken0, sellAmount, buyAmount, sellDecimals, buyDecimals)
   }
 

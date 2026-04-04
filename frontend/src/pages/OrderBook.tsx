@@ -22,11 +22,13 @@ export function OrderBook() {
   const pair = pairExists ? pairAddr as `0x${string}` : undefined
 
   const { token0, token1 } = usePairTokens(pair)
-  const { data: activeCount } = useActiveOrderCount(pair)
+  const { data: activeCount, refetch: refetchCount } = useActiveOrderCount(pair)
   const total = Number(activeCount ?? 0n)
 
   const offset = page * PAGE_SIZE
-  const { data, isLoading, refetch } = useActiveOrders(pair, offset, PAGE_SIZE)
+  const { data, isLoading, refetch: refetchOrders } = useActiveOrders(pair, offset, PAGE_SIZE)
+
+  const refetch = () => { refetchOrders(); refetchCount() }
 
   const orderIds = data ? [...data[0]] : []
   const orders = data ? [...data[1]] : []

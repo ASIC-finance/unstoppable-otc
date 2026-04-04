@@ -18,9 +18,13 @@ export const supportedChains: ChainConfig[] = [
 
 export const networks = supportedChains.map(c => c.network) as [AppKitNetwork, ...AppKitNetwork[]]
 
+const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
+
 export function getFactoryAddress(chainId: number | undefined): `0x${string}` | undefined {
   if (!chainId) return undefined
-  return supportedChains.find(c => c.network.id === chainId)?.factoryAddress
+  const addr = supportedChains.find(c => c.network.id === chainId)?.factoryAddress
+  if (!addr || addr === ZERO_ADDRESS) return undefined
+  return addr
 }
 
 export { mainnet, arbitrum, optimism, polygon, base, sepolia }
