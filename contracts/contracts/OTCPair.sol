@@ -48,7 +48,7 @@ contract OTCPair is ReentrancyGuard {
         uint256 indexed orderId,
         address indexed taker,
         uint256 sellAmountOut,
-        uint256 buyAmountIn
+        uint256 buyAmountDelivered // actual amount delivered to maker (after any token fees)
     );
 
     event OrderCancelled(uint256 indexed orderId);
@@ -162,7 +162,7 @@ contract OTCPair is ReentrancyGuard {
         buy.safeTransfer(order.maker, actualBuyReceived);
         sell.safeTransfer(msg.sender, sellAmountOut);
 
-        emit OrderFilled(orderId, msg.sender, sellAmountOut, buyAmountIn);
+        emit OrderFilled(orderId, msg.sender, sellAmountOut, actualBuyReceived);
     }
 
     /// @notice Cancel an active order and refund remaining tokens

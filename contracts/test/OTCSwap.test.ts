@@ -368,6 +368,38 @@ describe("OTCFactory + OTCPair", function () {
     });
   });
 
+  // ── Event accuracy with fee-on-transfer buy token ─────────────
+
+  describe("OTCPair.fillOrder event accuracy", function () {
+    it("should emit actual delivered amount, not quoted amount, for fee-on-transfer buy tokens", async function () {
+      const { factory, tokenA, feeToken, maker, taker } = await loadFixture(deployFixture);
+
+      await factory.createPair(tokenA.target, feeToken.target);
+      const pairAddr = await factory.getPair(tokenA.target, feeToken.target);
+      const pair = await ethers.getContractAt("OTCPair", pairAddr);
+
+      const token0 = await pair.token0();
+      const sellToken0 = token0.toLowerCase() === String(tokenA.target).toLowerCase();
+
+      const sellAmount = ethers.parseEther("100");
+      const buyAmount = ethers.parseEther("100");
+
+      // Maker sells tokenA, wants feeToken (1% fee on transfer)
+      await tokenA.connect(maker).approve(pair.target, sellAmount);
+      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount);
+
+      // Taker fills: pays 100 feeToken, but pair receives 99 (1% fee),
+      // then pair sends 99 to maker, maker receives 98.01 (another 1% fee)
+      await feeToken.connect(taker).approve(pair.target, buyAmount);
+
+      // Event should emit actualBuyReceived (99), NOT buyAmountIn (100)
+      const expectedDelivered = ethers.parseEther("99"); // 100 - 1% fee on first hop
+      await expect(pair.connect(taker).fillOrder(0, sellAmount))
+        .to.emit(pair, "OrderFilled")
+        .withArgs(0, taker.address, sellAmount, expectedDelivered);
+    });
+  });
+
   // ── Isolation ─────────────────────────────────────────────────
 
   describe("Pair isolation", function () {

@@ -39,7 +39,7 @@ export const OTCPairABI = [
       { indexed: true, name: "orderId", type: "uint256" },
       { indexed: true, name: "taker", type: "address" },
       { indexed: false, name: "sellAmountOut", type: "uint256" },
-      { indexed: false, name: "buyAmountIn", type: "uint256" },
+      { indexed: false, name: "buyAmountDelivered", type: "uint256" },
     ],
     name: "OrderFilled",
     type: "event",
