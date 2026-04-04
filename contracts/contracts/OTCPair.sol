@@ -8,6 +8,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 /// @title OTCPair - Isolated order book for a single token pair
 /// @notice Each pair is deployed by OTCFactory and holds only two tokens.
 ///         A malicious token can only affect its own pair, not the platform.
+/// @dev Not compatible with rebasing tokens (stETH, aTokens, etc.) or tokens
+///      that block transfers after deposit. Use standard ERC20 tokens only.
 contract OTCPair is ReentrancyGuard {
     using SafeERC20 for IERC20;
 
