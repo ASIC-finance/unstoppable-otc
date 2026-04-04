@@ -43,19 +43,24 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
   const { fillOrder, isPending, isSuccess, error, reset } = useFillOrder()
 
   const remaining = order.sellAmount - order.filledSellAmount
-  const sd = sellDecimals ?? 18
-  const bd = buyDecimals ?? 18
+
+  // Block interaction until decimals are resolved — prevents 18-decimal misparse
+  const decimalsReady = sellDecimals != null && buyDecimals != null
+  const sd = sellDecimals ?? 0
+  const bd = buyDecimals ?? 0
 
   let buyAmountNeeded = 0n
   let fillAmountParsed = 0n
-  try {
-    fillAmountParsed = parseUnits(fillAmount || '0', sd)
-    if (fillAmountParsed > 0n && order.sellAmount > 0n) {
-      // ceil div to match contract
-      const num = order.buyAmount * fillAmountParsed
-      buyAmountNeeded = num === 0n ? 0n : (num - 1n) / order.sellAmount + 1n
-    }
-  } catch { /* */ }
+  if (decimalsReady) {
+    try {
+      fillAmountParsed = parseUnits(fillAmount || '0', sd)
+      if (fillAmountParsed > 0n && order.sellAmount > 0n) {
+        // ceil div to match contract
+        const num = order.buyAmount * fillAmountParsed
+        buyAmountNeeded = num === 0n ? 0n : (num - 1n) / order.sellAmount + 1n
+      }
+    } catch { /* */ }
+  }
 
   const { allowance, approve, isApproving, refetchAllowance, approvalConfirmed } = useTokenAllowance(
     buyTokenAddr, address, pairAddress,
@@ -86,7 +91,8 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
 
   return (
     <div className="flex items-center gap-2">
-      <input type="text" placeholder={`Max ${formatUnits(remaining, sd)}`} value={fillAmount}
+      <input type="text" placeholder={decimalsReady ? `Max ${formatUnits(remaining, sd)}` : 'Loading...'} value={fillAmount}
+        disabled={!decimalsReady}
         onChange={e => setFillAmount(e.target.value)}
         className="w-28 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-sm text-gray-100 placeholder-gray-500" />
       {buyAmountNeeded > 0n && (
@@ -98,7 +104,7 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
         >{isApproving ? 'Approving...' : 'Approve'}</button>
       ) : (
         <button onClick={() => fillOrder(pairAddress, orderId, fillAmountParsed)}
-          disabled={isPending || fillAmountParsed <= 0n || fillAmountParsed > remaining}
+          disabled={!decimalsReady || isPending || fillAmountParsed <= 0n || fillAmountParsed > remaining}
           className="px-3 py-1 rounded text-sm bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
         >{isPending ? 'Filling...' : 'Fill'}</button>
       )}
