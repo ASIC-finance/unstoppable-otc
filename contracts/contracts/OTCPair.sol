@@ -57,6 +57,7 @@ contract OTCPair is ReentrancyGuard {
     error OrderNotActive();
     error NotMaker();
     error ExceedsRemaining();
+    error NotStuckToken();
     error ZeroCost();
 
     constructor(address _token0, address _token1) {
@@ -181,6 +182,16 @@ contract OTCPair is ReentrancyGuard {
         }
 
         emit OrderCancelled(orderId);
+    }
+
+    /// @notice Rescue tokens accidentally sent to this pair that are NOT token0 or token1.
+    ///         Cannot touch escrowed pair tokens. Permissionless — sends to caller.
+    /// @param token The stuck token to rescue
+    function rescueToken(address token) external nonReentrant {
+        if (token == token0 || token == token1) revert NotStuckToken();
+        uint256 balance = IERC20(token).balanceOf(address(this));
+        if (balance == 0) revert ZeroAmount();
+        IERC20(token).safeTransfer(msg.sender, balance);
     }
 
     // ── Views ───────────────────────────────────────────────────────
