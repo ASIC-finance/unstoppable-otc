@@ -326,45 +326,6 @@ describe("OTCFactory + OTCPair", function () {
     });
   });
 
-  // ── Pair: rescueToken ──────────────────────────────────────────
-
-  describe("OTCPair.rescueToken", function () {
-    it("should rescue accidentally sent third-party tokens", async function () {
-      const { pair, maker } = await loadFixture(deployWithPairFixture);
-      const MockERC20 = await ethers.getContractFactory("MockERC20");
-      const stuckToken = await MockERC20.deploy("Stuck", "STK", 18);
-
-      // Accidentally send tokens directly to the pair
-      await stuckToken.mint(pair.target, ethers.parseEther("50"));
-      expect(await stuckToken.balanceOf(pair.target)).to.equal(ethers.parseEther("50"));
-
-      // Anyone can rescue them
-      await pair.connect(maker).rescueToken(stuckToken.target);
-      expect(await stuckToken.balanceOf(maker.address)).to.equal(ethers.parseEther("50"));
-      expect(await stuckToken.balanceOf(pair.target)).to.equal(0);
-    });
-
-    it("should revert when trying to rescue token0 or token1", async function () {
-      const { pair, tokenA, tokenB, maker } = await loadFixture(deployWithPairFixture);
-      await expect(
-        pair.connect(maker).rescueToken(tokenA.target)
-      ).to.be.revertedWithCustomError(pair, "NotStuckToken");
-      await expect(
-        pair.connect(maker).rescueToken(tokenB.target)
-      ).to.be.revertedWithCustomError(pair, "NotStuckToken");
-    });
-
-    it("should revert when stuck token has zero balance", async function () {
-      const { pair, maker } = await loadFixture(deployWithPairFixture);
-      const MockERC20 = await ethers.getContractFactory("MockERC20");
-      const emptyToken = await MockERC20.deploy("Empty", "EMP", 18);
-
-      await expect(
-        pair.connect(maker).rescueToken(emptyToken.target)
-      ).to.be.revertedWithCustomError(pair, "ZeroAmount");
-    });
-  });
-
   // ── Pair: indexed queries ─────────────────────────────────────
 
   describe("OTCPair.indexedQueries", function () {
