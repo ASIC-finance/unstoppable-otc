@@ -15,12 +15,30 @@ export const pulsechain = defineChain({
   },
 })
 
+export const ethereum = defineChain({
+  id: 1,
+  caipNetworkId: 'eip155:1',
+  chainNamespace: 'eip155',
+  name: 'Ethereum',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://eth.drpc.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'Etherscan', url: 'https://etherscan.io' },
+  },
+})
+
 type ChainConfig = {
   network: AppKitNetwork
   factoryAddress: `0x${string}`
 }
 
 export const supportedChains: ChainConfig[] = [
+  {
+    network: ethereum,
+    factoryAddress: '0x0000000000000000000000000000000000000000', // TODO: deploy and update
+  },
   {
     network: pulsechain,
     factoryAddress: '0x0000000000000000000000000000000000000000', // TODO: deploy and update
