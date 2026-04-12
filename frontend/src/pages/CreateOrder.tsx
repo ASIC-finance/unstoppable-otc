@@ -177,7 +177,7 @@ export function CreateOrder() {
               className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-emerald-500 focus:outline-none" />
           </div>
 
-          {sellAddr && sellInfo.symbol && (
+          {sellAddr && sellInfo.symbol && sellDecimals != null && (
             <TokenCard address={sellAddr} balance={sellBalance} decimals={sellDecimals} label="Sell token" />
           )}
 
@@ -252,7 +252,7 @@ export function CreateOrder() {
               className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-emerald-500 focus:outline-none" />
           </div>
 
-          {buyAddr && buyInfo.symbol && (
+          {buyAddr && buyInfo.symbol && buyDecimals != null && (
             <TokenCard address={buyAddr} decimals={buyDecimals} label="Buy token" />
           )}
 
