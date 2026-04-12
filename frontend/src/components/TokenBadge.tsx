@@ -5,7 +5,7 @@ import { shortenAddress } from '../utils/format'
 
 function Fallback({ symbol }: { symbol: string }) {
   return (
-    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-dark)] text-[10px] font-bold text-stone-100">
+    <span className="token-avatar">
       {symbol.slice(0, 2).toUpperCase()}
     </span>
   )
@@ -17,14 +17,14 @@ export function TokenBadge({ address }: { address: `0x${string}` }) {
   const [imgError, setImgError] = useState(false)
 
   if (isLoading) {
-    return <span className="text-sm text-[var(--text-muted)]">Loading…</span>
+    return <span className="token-badge text-[var(--text-muted)]">Loading…</span>
   }
 
   const label = symbol ?? shortenAddress(address)
 
   return (
     <span
-      className="inline-flex min-w-0 items-center gap-2 rounded-full border border-[var(--border-soft)] bg-white/70 dark:bg-[rgba(22,27,34,0.50)] px-2.5 py-1.5 text-sm shadow-[0_10px_24px_rgba(33,44,39,0.06)]"
+      className="token-badge"
       title={address}
     >
       {logoURI && !imgError ? (
@@ -33,7 +33,6 @@ export function TokenBadge({ address }: { address: `0x${string}` }) {
           alt=""
           width={24}
           height={24}
-          className="h-6 w-6 shrink-0 rounded-full"
           loading="lazy"
           onError={() => setImgError(true)}
         />

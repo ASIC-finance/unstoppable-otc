@@ -1,10 +1,12 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useAccount } from 'wagmi'
 import { isAddress } from 'viem'
 import { useActiveOrderCount, useActiveOrders, usePairTokens } from '../hooks/useOrders'
 import { useAllPairsLength, useAllPairs, usePairAddress } from '../hooks/useFactory'
 import { OrderTable } from '../components/OrderTable'
 import { TokenBadge } from '../components/TokenBadge'
+import { shortenAddress } from '../utils/format'
 
 const ORDERS_PER_PAIR = 20
 
@@ -32,54 +34,53 @@ function PairSection({ pairAddress, isSelected, onSelect }: {
   const panelId = `pair-${pairAddress.toLowerCase()}`
 
   return (
-    <section className={`surface surface-interactive overflow-hidden ${isSelected ? 'bg-white/94 dark:bg-[rgba(30,36,44,0.94)]' : 'bg-white/76 dark:bg-[rgba(22,27,34,0.76)]'}`}>
+    <section className="pair-row" data-selected={isSelected}>
       <button
         type="button"
         onClick={onSelect}
         aria-expanded={isSelected}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left"
+        className="pair-row-button"
       >
-        <div className="min-w-0">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="section-label mb-0">Pair</span>
-            <span className={`status-pill ${count > 0 ? 'bg-emerald-500/15 text-emerald-700' : 'bg-stone-300/25 text-stone-600'}`}>
+        <div className="pair-main">
+          <div className="pair-heading">
+            <span className="eyebrow mb-0">Pair</span>
+            <span className={count > 0 ? 'status-pill status-active' : 'status-pill status-muted'}>
               <span className="numeric">{count}</span> active
             </span>
+            <span className="pair-address">{shortenAddress(pairAddress)}</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="pair-route">
             {token0 && <TokenBadge address={token0} />}
             <span className="text-sm font-semibold text-[var(--text-muted)]">/</span>
             {token1 && <TokenBadge address={token1} />}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="hidden text-sm font-medium text-[var(--text-soft)] sm:inline">
-            {isSelected ? 'Inspecting Orders' : 'Open Book'}
+        <div className="pair-sidecar">
+          <span className="text-sm font-semibold text-[var(--text-soft)]">
+            {isSelected ? 'Orders Open' : 'Inspect'}
           </span>
-          <span
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-soft)] bg-white/70 dark:bg-[rgba(22,27,34,0.50)] text-lg text-[var(--text-soft)] transition-transform ${isSelected ? 'rotate-180' : ''}`}
-            aria-hidden="true"
-          >
+          <span className="chevron" aria-hidden="true">
             {'\u25BE'}
           </span>
         </div>
       </button>
 
       {isSelected && (
-        <div id={panelId} className="border-t border-[var(--border-soft)] px-4 pb-4 pt-4">
+        <div id={panelId} className="pair-panel">
           {isLoading && (
-            <p className="py-8 text-center text-sm text-[var(--text-muted)]" aria-live="polite">
-              Loading orders…
+            <p className="loading-state text-sm" aria-live="polite">
+              <strong>Loading Orders…</strong>
+              Reading this pair from chain.
             </p>
           )}
 
           {!isLoading && count === 0 && (
-            <div className="surface-muted px-5 py-8 text-center">
-              <p className="text-sm font-semibold text-[var(--text-strong)]">No active orders.</p>
-              <p className="mt-1 text-sm text-[var(--text-soft)]">
+            <div className="empty-state">
+              <strong>No Active Orders</strong>
+              <p className="m-0 text-sm">
                 This pair is deployed, but there is nothing actionable in the book right now.
               </p>
             </div>
@@ -113,7 +114,6 @@ export function OrderBook() {
   const [expandedPair, setExpandedPair] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [searchB, setSearchB] = useState('')
-  const [showSearch, setShowSearch] = useState(false)
 
   const { data: pairCount } = useAllPairsLength()
   const total = Number(pairCount ?? 0n)
@@ -128,114 +128,118 @@ export function OrderBook() {
 
   if (!isConnected) {
     return (
-      <section className="surface px-6 py-8 sm:px-8">
-        <p className="section-label">Wallet Required</p>
-        <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
-          Connect a wallet to inspect the live order book.
-        </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-soft)]">
-          The current view is read-only until a wallet is connected. Once connected, you can inspect maker terms and fill directly from the selected pair.
-        </p>
+      <section className="workspace-header">
+        <div>
+          <p className="eyebrow">Wallet Required</p>
+          <h1 className="workspace-title">
+            Connect a wallet to inspect the live order book.
+          </h1>
+          <p className="workspace-copy">
+            Read maker terms, pair state, and fillable liquidity once a wallet is connected.
+          </p>
+        </div>
+        <div className="workspace-meta">
+          <span className="kpi-pill">Read-only until connected</span>
+        </div>
       </section>
     )
   }
 
   return (
-    <div className="space-y-5">
-      <section className="surface px-6 py-6 sm:px-8">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl">
-            <p className="section-label">Live Book</p>
-            <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)] sm:text-[2rem]">
-              Monitor deployed pairs and expand only the books worth acting on.
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-              Search by token route when you know the contracts, or work through the currently deployed pairs and inspect fillable liquidity in place.
-            </p>
+    <div className="workspace">
+      <section className="workspace-header">
+        <div>
+          <p className="eyebrow">Live Book</p>
+          <h1 className="workspace-title">
+            Deployed pairs and fillable OTC liquidity.
+          </h1>
+          <p className="workspace-copy">
+            Search a token route directly or scan deployed pairs before opening the live order table.
+          </p>
+        </div>
+
+        <div className="workspace-meta">
+          <span className="kpi-pill numeric">{total} deployed pair{total === 1 ? '' : 's'}</span>
+          <Link to="/create" className="primary-button">Create Order</Link>
+        </div>
+      </section>
+
+      <section className="workspace-header">
+        <div>
+          <p className="eyebrow">Route Search</p>
+          <h2 className="m-0 text-base font-extrabold text-[var(--text-strong)]">
+            Jump to a pair by token address.
+          </h2>
+        </div>
+
+        <div className="search-desk">
+          <div className="field-stack">
+            <label htmlFor="search-token-a" className="field-label">
+              Token A Address
+            </label>
+            <input
+              id="search-token-a"
+              name="search_token_a"
+              type="text"
+              value={search}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="0x1234…"
+              onChange={event => setSearch(event.target.value)}
+              className="input-field"
+            />
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="kpi-pill numeric">{total} deployed pair{total === 1 ? '' : 's'}</span>
-            <button
-              type="button"
-              onClick={() => setShowSearch(current => !current)}
-              className={showSearch ? 'secondary-button' : 'ghost-button'}
-            >
-              {showSearch ? 'Hide Pair Search' : 'Search Pair'}
-            </button>
+          <div className="field-stack">
+            <label htmlFor="search-token-b" className="field-label">
+              Token B Address
+            </label>
+            <input
+              id="search-token-b"
+              name="search_token_b"
+              type="text"
+              value={searchB}
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="0x5678…"
+              onChange={event => setSearchB(event.target.value)}
+              className="input-field"
+            />
           </div>
         </div>
 
-        {showSearch && (
-          <div className="mt-6 border-t border-[var(--border-soft)] pt-6">
-            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <div>
-                <label htmlFor="search-token-a" className="mb-2 block text-sm font-semibold text-[var(--text-strong)]">
-                  Token A Address
-                </label>
-                <input
-                  id="search-token-a"
-                  name="search_token_a"
-                  type="text"
-                  value={search}
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="0x1234…"
-                  onChange={event => setSearch(event.target.value)}
-                  className="input-field"
-                />
-              </div>
+        <div className="col-span-full" aria-live="polite">
+          {searchAddrA && searchAddrB && !searchPairExists && (
+            <p className="notice-state m-0 text-sm text-[var(--warning)]">
+              <strong>No Matching Pair</strong>
+              These token addresses do not have a deployed route yet.
+            </p>
+          )}
+        </div>
 
-              <div>
-                <label htmlFor="search-token-b" className="mb-2 block text-sm font-semibold text-[var(--text-strong)]">
-                  Token B Address
-                </label>
-                <input
-                  id="search-token-b"
-                  name="search_token_b"
-                  type="text"
-                  value={searchB}
-                  autoComplete="off"
-                  spellCheck={false}
-                  placeholder="0x5678…"
-                  onChange={event => setSearchB(event.target.value)}
-                  className="input-field"
-                />
-              </div>
-            </div>
-
-            <div className="mt-4" aria-live="polite">
-              {searchAddrA && searchAddrB && !searchPairExists && (
-                <p className="text-sm font-medium text-[var(--warning)]">
-                  No deployed pair matches these token addresses yet.
-                </p>
-              )}
-            </div>
-
-            {searchPair && (
-              <div className="mt-4">
-                <PairSection
-                  pairAddress={searchPair}
-                  isSelected={expandedPair === searchPair}
-                  onSelect={() => setExpandedPair(expandedPair === searchPair ? null : searchPair)}
-                />
-              </div>
-            )}
+        {searchPair && (
+          <div className="col-span-full">
+            <PairSection
+              pairAddress={searchPair}
+              isSelected={expandedPair === searchPair}
+              onSelect={() => setExpandedPair(expandedPair === searchPair ? null : searchPair)}
+            />
           </div>
         )}
       </section>
 
-      <section className="space-y-3">
+      <section className="market-list">
         {loadingPairs && (
-          <section className="surface px-6 py-8 text-center">
-            <p className="text-sm font-medium text-[var(--text-muted)]" aria-live="polite">Loading pairs…</p>
+          <section className="loading-state" aria-live="polite">
+            <strong>Loading Pairs…</strong>
+            Reading deployed pair registry.
           </section>
         )}
 
         {!loadingPairs && pairs.length === 0 && (
-          <section className="surface px-6 py-8 text-center">
-            <p className="text-base font-semibold text-[var(--text-strong)]">No pairs are deployed yet.</p>
-            <p className="mt-2 text-sm text-[var(--text-soft)]">
+          <section className="empty-state">
+            <strong>No Pairs Deployed</strong>
+            <p className="m-0 text-sm">
               Create the first order to deploy a route and start building the book.
             </p>
           </section>
@@ -256,7 +260,7 @@ export function OrderBook() {
 
       {total > 100 && (
         <p className="px-2 text-sm text-[var(--text-muted)]">
-          Showing the first 100 deployed pairs. Use pair search to jump directly to another route.
+          Showing the first 100 deployed pairs. Use route search to jump directly to another pair.
         </p>
       )}
     </div>

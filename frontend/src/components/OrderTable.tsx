@@ -92,8 +92,8 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
 
   if (filled) {
     return (
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="status-pill bg-emerald-500/15 text-emerald-700">Filled</span>
+      <div className="order-action">
+        <span className="status-pill status-active">Filled</span>
         <button
           type="button"
           onClick={() => {
@@ -110,7 +110,7 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="order-action">
       <label htmlFor={`fill-amount-${orderId}`} className="sr-only">
         Fill amount for order {orderId.toString()}
       </label>
@@ -126,7 +126,7 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
         aria-label={`Fill amount for order ${orderId.toString()}`}
         placeholder={decimalsReady ? `Max ${formatUnits(remaining, sd)}` : 'Loading…'}
         onChange={event => setFillAmount(event.target.value)}
-        className="input-field min-h-0 w-[9rem] px-3 py-2 text-sm"
+        className="input-field min-h-0 w-[8.5rem] px-3 py-2 text-sm"
       />
 
       {buyAmountNeeded > 0n && (
@@ -183,7 +183,7 @@ export function OrderTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-[1.5rem] border border-[var(--border-soft)] bg-white/72 dark:bg-[rgba(22,27,34,0.60)]">
+    <div className="table-frame">
       <table className="data-table">
         <caption className="sr-only">Selected pair orders with maker, amount, fill progress, and actions.</caption>
         <thead>
@@ -209,21 +209,12 @@ export function OrderTable({
             const filled = filledPercent(order.sellAmount, order.filledSellAmount)
 
             const status = [
-              {
-                label: 'Active',
-                className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
-              },
-              {
-                label: 'Filled',
-                className: 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
-              },
-              {
-                label: 'Cancelled',
-                className: 'bg-stone-400/20 text-stone-600 dark:text-stone-400',
-              },
+              { label: 'Active', className: 'status-active' },
+              { label: 'Filled', className: 'status-info' },
+              { label: 'Cancelled', className: 'status-muted' },
             ][order.status] ?? {
               label: 'Unknown',
-              className: 'bg-stone-300/20 text-stone-600 dark:text-stone-400',
+              className: 'status-muted',
             }
 
             return (
@@ -233,7 +224,7 @@ export function OrderTable({
                   <span className="text-sm font-medium text-[var(--text-strong)]" title={order.maker}>
                     {shortenAddress(order.maker)}
                     {isOwnOrder && (
-                      <span className="ml-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                      <span className="status-pill status-active ml-2 min-h-0 px-2 py-1 text-[0.65rem]">
                         You
                       </span>
                     )}
@@ -241,10 +232,10 @@ export function OrderTable({
                 </td>
                 <td><TokenBadge address={sellTokenAddr} /></td>
                 <td><TokenBadge address={buyTokenAddr} /></td>
-                <td><TokenAmount address={sellTokenAddr} amount={order.sellAmount} /></td>
-                <td><TokenAmount address={buyTokenAddr} amount={order.buyAmount} /></td>
-                <td>
-                  <div className="flex items-center gap-3">
+                <td className="cell-numeric"><TokenAmount address={sellTokenAddr} amount={order.sellAmount} /></td>
+                <td className="cell-numeric"><TokenAmount address={buyTokenAddr} amount={order.buyAmount} /></td>
+                <td className="cell-numeric">
+                  <div className="flex items-center justify-end gap-3">
                     <div className="progress-track" aria-hidden="true">
                       <div className="progress-fill" style={{ width: `${filled}%` }} />
                     </div>
@@ -275,7 +266,7 @@ export function OrderTable({
                         type="button"
                         onClick={() => onCancel(orderId)}
                         disabled={isCancelling}
-                        className="secondary-button min-h-0 border-[rgba(181,83,81,0.22)] px-3 py-2 text-sm text-[var(--danger)]"
+                        className="secondary-button danger-button min-h-0 px-3 py-2 text-sm"
                       >
                         {isCancelling ? 'Cancelling…' : 'Cancel'}
                       </button>

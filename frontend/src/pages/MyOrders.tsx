@@ -5,6 +5,7 @@ import { useAllPairsLength, useAllPairs } from '../hooks/useFactory'
 import { useCancelOrder } from '../hooks/useCancelOrder'
 import { OrderTable } from '../components/OrderTable'
 import { TokenBadge } from '../components/TokenBadge'
+import { shortenAddress } from '../utils/format'
 
 const PAGE_SIZE = 50
 
@@ -46,47 +47,46 @@ function MyPairOrders({ pairAddress, isExpanded, onToggle }: {
   }
 
   return (
-    <section className={`surface surface-interactive overflow-hidden ${isExpanded ? 'bg-white/94 dark:bg-[rgba(30,36,44,0.94)]' : 'bg-white/76 dark:bg-[rgba(22,27,34,0.76)]'}`}>
+    <section className="pair-row" data-selected={isExpanded}>
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isExpanded}
         aria-controls={panelId}
-        className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left"
+        className="pair-row-button"
       >
-        <div className="min-w-0">
-          <div className="mb-3 flex flex-wrap items-center gap-2">
-            <span className="section-label mb-0">Maker Inventory</span>
-            <span className="status-pill bg-[var(--accent-soft)] text-emerald-700">
+        <div className="pair-main">
+          <div className="pair-heading">
+            <span className="eyebrow mb-0">Maker Inventory</span>
+            <span className="status-pill status-active">
               <span className="numeric">{count}</span> live order{count === 1 ? '' : 's'}
             </span>
+            <span className="pair-address">{shortenAddress(pairAddress)}</span>
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="pair-route">
             {token0 && <TokenBadge address={token0} />}
             <span className="text-sm font-semibold text-[var(--text-muted)]">/</span>
             {token1 && <TokenBadge address={token1} />}
           </div>
         </div>
 
-        <div className="flex shrink-0 items-center gap-3">
-          <span className="hidden text-sm font-medium text-[var(--text-soft)] sm:inline">
-            {isExpanded ? 'Managing Orders' : 'Open Pair'}
+        <div className="pair-sidecar">
+          <span className="text-sm font-semibold text-[var(--text-soft)]">
+            {isExpanded ? 'Managing' : 'Open'}
           </span>
-          <span
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-soft)] bg-white/70 dark:bg-[rgba(22,27,34,0.50)] text-lg text-[var(--text-soft)] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-            aria-hidden="true"
-          >
+          <span className="chevron" aria-hidden="true">
             {'\u25BE'}
           </span>
         </div>
       </button>
 
       {isExpanded && (
-        <div id={panelId} className="border-t border-[var(--border-soft)] px-4 pb-4 pt-4">
+        <div id={panelId} className="pair-panel">
           {isLoading && (
-            <p className="py-8 text-center text-sm text-[var(--text-muted)]" aria-live="polite">
-              Loading your orders…
+            <p className="loading-state text-sm" aria-live="polite">
+              <strong>Loading Your Orders…</strong>
+              Reading maker inventory for this pair.
             </p>
           )}
 
@@ -120,50 +120,54 @@ export function MyOrders() {
 
   if (!isConnected) {
     return (
-      <section className="surface px-6 py-8 sm:px-8">
-        <p className="section-label">Wallet Required</p>
-        <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
-          Connect a wallet to inspect and cancel your maker orders.
-        </h2>
-        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-soft)]">
-          This view groups your exposure by deployed pair so you can review remaining size and close out orders from a single workspace.
-        </p>
+      <section className="workspace-header">
+        <div>
+          <p className="eyebrow">Wallet Required</p>
+          <h1 className="workspace-title">
+            Connect a wallet to inspect and cancel maker orders.
+          </h1>
+          <p className="workspace-copy">
+            Pair-level inventory appears after wallet connection.
+          </p>
+        </div>
+        <div className="workspace-meta">
+          <span className="kpi-pill">Maker-only view</span>
+        </div>
       </section>
     )
   }
 
   return (
-    <div className="space-y-5">
-      <section className="surface px-6 py-6 sm:px-8">
-        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-          <div className="max-w-3xl">
-            <p className="section-label">Maker Control</p>
-            <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)] sm:text-[2rem]">
-              Review pair exposure and cancel live orders without leaving the table.
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
-              Each pair expands into a full order table, so you can inspect remaining fill progress before you decide whether to keep or pull liquidity.
-            </p>
-          </div>
+    <div className="workspace">
+      <section className="workspace-header">
+        <div>
+          <p className="eyebrow">Maker Control</p>
+          <h1 className="workspace-title">
+            Pair exposure and cancelable live orders.
+          </h1>
+          <p className="workspace-copy">
+            Expand a route to review remaining size, fill progress, and cancellation actions.
+          </p>
+        </div>
 
-          <div className="flex flex-wrap gap-2">
-            <span className="kpi-pill numeric">{total} deployed pair{total === 1 ? '' : 's'}</span>
-            <span className="kpi-pill">Only your orders appear when expanded</span>
-          </div>
+        <div className="workspace-meta">
+          <span className="kpi-pill numeric">{total} deployed pair{total === 1 ? '' : 's'}</span>
+          <span className="kpi-pill">Maker orders only</span>
         </div>
       </section>
 
-      <section className="space-y-3">
+      <section className="market-list">
         {isLoading && (
-          <section className="surface px-6 py-8 text-center">
-            <p className="text-sm font-medium text-[var(--text-muted)]" aria-live="polite">Loading deployed pairs…</p>
+          <section className="loading-state" aria-live="polite">
+            <strong>Loading Deployed Pairs…</strong>
+            Checking routes for maker inventory.
           </section>
         )}
 
         {!isLoading && pairs.length === 0 && (
-          <section className="surface px-6 py-8 text-center">
-            <p className="text-base font-semibold text-[var(--text-strong)]">No pairs are deployed yet.</p>
-            <p className="mt-2 text-sm text-[var(--text-soft)]">
+          <section className="empty-state">
+            <strong>No Pairs Deployed</strong>
+            <p className="m-0 text-sm">
               Once a route exists, your maker orders will show up here pair by pair.
             </p>
           </section>
