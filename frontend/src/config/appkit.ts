@@ -21,7 +21,7 @@ createAppKit({
   metadata: {
     name: 'Unstoppable OTC',
     description: 'Decentralized OTC Trading - Zero Fees',
-    url: 'https://unstoppable-otc.xyz',
+    url: typeof window !== 'undefined' ? window.location.origin : 'https://unstoppable-otc.pages.dev',
     icons: [],
   },
   features: {
@@ -29,4 +29,8 @@ createAppKit({
     email: false,
     socials: false,
   },
+  enableInjected: true,
+  enableEIP6963: true,
+  enableCoinbase: false,
+  enableWallets: true,
 })

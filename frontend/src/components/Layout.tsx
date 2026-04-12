@@ -1,6 +1,7 @@
 import { Link, useLocation } from 'react-router-dom'
 import { useAppKit } from '@reown/appkit/react'
 import { useAccount } from 'wagmi'
+import heroMark from '../assets/hero.png'
 import { shortenAddress } from '../utils/format'
 
 const navLinks = [
@@ -15,56 +16,79 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation()
 
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100">
-      <header className="border-b border-gray-800">
-        <div className="mx-auto max-w-5xl flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-6">
-            <Link to="/" className="text-lg font-semibold text-white">
-              Unstoppable OTC
-            </Link>
-            <nav className="hidden sm:flex gap-1">
-              {navLinks.map(link => (
-                <Link
-                  key={link.to}
-                  to={link.to}
-                  className={`px-3 py-1.5 rounded text-sm transition-colors ${
-                    location.pathname === link.to
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-400 hover:text-gray-200'
-                  }`}
-                >
-                  {link.label}
+    <div className="min-h-screen">
+      <a href="#main-content" className="skip-link">Skip to content</a>
+
+      <div className="mx-auto flex min-h-screen max-w-7xl flex-col px-4 pb-10 pt-4 sm:px-6 lg:px-8">
+        <header className="sticky top-4 z-30 mb-6">
+          <div className="surface px-4 py-4 sm:px-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <Link to="/" className="flex min-w-0 items-center gap-4 rounded-[1.6rem]">
+                  <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[1.35rem] bg-[var(--surface-dark)] shadow-[0_16px_30px_rgba(21,33,29,0.16)]">
+                    <img
+                      src={heroMark}
+                      alt=""
+                      width={36}
+                      height={36}
+                      fetchPriority="high"
+                      className="brand-orb h-9 w-9 object-contain"
+                    />
+                  </div>
+
+                  <div className="min-w-0">
+                    <p className="section-label mb-1">Unstoppable OTC</p>
+                    <p className="text-base font-semibold tracking-tight text-[var(--text-strong)] sm:text-lg">
+                      OTC routing with calmer market context.
+                    </p>
+                    <p className="mt-1 max-w-xl text-sm leading-6 text-[var(--text-soft)]">
+                      Self-custodial order flow for deliberate token trades.
+                    </p>
+                  </div>
                 </Link>
-              ))}
-            </nav>
+
+                <button
+                  type="button"
+                  onClick={() => open()}
+                  className="wallet-button w-full sm:w-auto"
+                >
+                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-300" aria-hidden="true" />
+                  {isConnected && address ? shortenAddress(address) : 'Connect Wallet'}
+                </button>
+              </div>
+
+              <div className="border-t border-[var(--border-soft)] pt-4">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <nav aria-label="Primary" className="flex flex-wrap gap-2">
+                    {navLinks.map(link => {
+                      const isActive = location.pathname === link.to
+                      return (
+                        <Link
+                          key={link.to}
+                          to={link.to}
+                          aria-current={isActive ? 'page' : undefined}
+                          data-active={isActive}
+                          className="nav-link"
+                        >
+                          {link.label}
+                        </Link>
+                      )
+                    })}
+                  </nav>
+
+                  <span className="kpi-pill self-start lg:self-auto">
+                    {isConnected ? 'Wallet Connected' : 'Wallet Required'}
+                  </span>
+                </div>
+              </div>
+            </div>
           </div>
-          <button
-            onClick={() => open()}
-            className="px-4 py-2 rounded-lg text-sm font-medium bg-emerald-600 hover:bg-emerald-500 text-white transition-colors"
-          >
-            {isConnected && address ? shortenAddress(address) : 'Connect Wallet'}
-          </button>
-        </div>
-        {/* Mobile nav */}
-        <nav className="sm:hidden flex border-t border-gray-800">
-          {navLinks.map(link => (
-            <Link
-              key={link.to}
-              to={link.to}
-              className={`flex-1 text-center py-2 text-sm transition-colors ${
-                location.pathname === link.to
-                  ? 'bg-gray-800 text-white'
-                  : 'text-gray-400'
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
-      </header>
-      <main className="mx-auto max-w-5xl px-4 py-6">
-        {children}
-      </main>
+        </header>
+
+        <main id="main-content" className="min-w-0 flex-1">
+          {children}
+        </main>
+      </div>
     </div>
   )
 }

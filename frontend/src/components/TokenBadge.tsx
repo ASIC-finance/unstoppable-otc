@@ -5,7 +5,7 @@ import { shortenAddress } from '../utils/format'
 
 function Fallback({ symbol }: { symbol: string }) {
   return (
-    <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-700 text-[10px] font-bold text-gray-300 shrink-0">
+    <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--surface-dark)] text-[10px] font-bold text-stone-100">
       {symbol.slice(0, 2).toUpperCase()}
     </span>
   )
@@ -17,26 +17,30 @@ export function TokenBadge({ address }: { address: `0x${string}` }) {
   const [imgError, setImgError] = useState(false)
 
   if (isLoading) {
-    return <span className="text-gray-500 text-sm">...</span>
+    return <span className="text-sm text-[var(--text-muted)]">Loading…</span>
   }
 
   const label = symbol ?? shortenAddress(address)
 
   return (
-    <span className="inline-flex items-center gap-1.5" title={address}>
+    <span
+      className="inline-flex min-w-0 items-center gap-2 rounded-full border border-[var(--border-soft)] bg-white/70 px-2.5 py-1.5 text-sm shadow-[0_10px_24px_rgba(33,44,39,0.06)]"
+      title={address}
+    >
       {logoURI && !imgError ? (
         <img
           src={logoURI}
-          alt={label}
-          width={20}
-          height={20}
-          className="rounded-full shrink-0"
+          alt=""
+          width={24}
+          height={24}
+          className="h-6 w-6 shrink-0 rounded-full"
+          loading="lazy"
           onError={() => setImgError(true)}
         />
       ) : (
         <Fallback symbol={label} />
       )}
-      <span className="font-medium text-gray-100">{label}</span>
+      <span className="min-w-0 truncate font-semibold text-[var(--text-strong)]">{label}</span>
     </span>
   )
 }
