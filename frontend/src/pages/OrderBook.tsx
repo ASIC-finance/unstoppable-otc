@@ -32,7 +32,7 @@ function PairSection({ pairAddress, isSelected, onSelect }: {
   const panelId = `pair-${pairAddress.toLowerCase()}`
 
   return (
-    <section className={`surface surface-interactive overflow-hidden ${isSelected ? 'bg-white/94' : 'bg-white/76'}`}>
+    <section className={`surface surface-interactive overflow-hidden ${isSelected ? 'bg-white/94 dark:bg-[rgba(30,36,44,0.94)]' : 'bg-white/76 dark:bg-[rgba(22,27,34,0.76)]'}`}>
       <button
         type="button"
         onClick={onSelect}
@@ -60,7 +60,7 @@ function PairSection({ pairAddress, isSelected, onSelect }: {
             {isSelected ? 'Inspecting Orders' : 'Open Book'}
           </span>
           <span
-            className={`inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-soft)] bg-white/70 text-lg text-[var(--text-soft)] transition-transform ${isSelected ? 'rotate-180' : ''}`}
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-soft)] bg-white/70 dark:bg-[rgba(22,27,34,0.50)] text-lg text-[var(--text-soft)] transition-transform ${isSelected ? 'rotate-180' : ''}`}
             aria-hidden="true"
           >
             {'\u25BE'}

@@ -19,28 +19,28 @@ function TokenCard({ address, balance, decimals, label }: {
   const logo = useTokenLogo(address)
 
   if (isLoading) {
-    return <div className="rounded-xl bg-gray-900 border border-gray-700 p-4 animate-pulse h-20" />
+    return <div className="surface-muted h-20 animate-pulse" />
   }
 
   return (
-    <div className="rounded-xl bg-gray-900 border border-gray-700 p-4">
-      <div className="text-xs text-gray-500 mb-2">{label}</div>
+    <div className="surface-muted px-4 py-4">
+      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] mb-2">{label}</div>
       <div className="flex items-center gap-3">
         {logo ? (
           <img src={logo} alt="" className="w-10 h-10 rounded-full" />
         ) : (
-          <span className="w-10 h-10 rounded-full bg-gray-700 flex items-center justify-center text-sm font-bold text-gray-300">
+          <span className="w-10 h-10 rounded-full bg-[var(--surface-dark)] flex items-center justify-center text-sm font-bold text-[var(--text-inverse)]">
             {(symbol ?? '?').slice(0, 2).toUpperCase()}
           </span>
         )}
         <div className="min-w-0 flex-1">
-          <div className="font-semibold text-white truncate">{symbol ?? 'Unknown'}</div>
-          <div className="text-xs text-gray-400 truncate">{name ?? address}</div>
+          <div className="font-semibold text-[var(--text-strong)] truncate">{symbol ?? 'Unknown'}</div>
+          <div className="text-xs text-[var(--text-soft)] truncate">{name ?? address}</div>
         </div>
         {balance !== undefined && (
           <div className="text-right">
-            <div className="text-sm text-white font-medium">{formatTokenAmount(balance, decimals)}</div>
-            <div className="text-xs text-gray-500">Balance</div>
+            <div className="text-sm font-semibold text-[var(--text-strong)] numeric">{formatTokenAmount(balance, decimals)}</div>
+            <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">Balance</div>
           </div>
         )}
       </div>
@@ -55,15 +55,15 @@ function Steps({ current, total }: { current: number; total: number }) {
     <div className="flex items-center gap-2 mb-6">
       {Array.from({ length: total }, (_, i) => (
         <div key={i} className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-medium border transition-colors ${
-            i < current ? 'bg-emerald-600 border-emerald-600 text-white'
-            : i === current ? 'border-emerald-500 text-emerald-400'
-            : 'border-gray-700 text-gray-600'
+          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold border transition-colors ${
+            i < current ? 'bg-[var(--accent)] border-[var(--accent)] text-white'
+            : i === current ? 'border-[var(--accent)] text-[var(--accent)]'
+            : 'border-[var(--border-strong)] text-[var(--text-muted)]'
           }`}>
             {i < current ? '\u2713' : i + 1}
           </div>
           {i < total - 1 && (
-            <div className={`w-8 h-px ${i < current ? 'bg-emerald-600' : 'bg-gray-700'}`} />
+            <div className={`w-8 h-px ${i < current ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)]'}`} />
           )}
         </div>
       ))}
@@ -120,7 +120,6 @@ export function CreateOrder() {
   const needsApproval = pair && parsedSellAmount > 0n && allowance < parsedSellAmount
   const insufficientBalance = parsedSellAmount > 0n && sellBalance !== undefined && parsedSellAmount > sellBalance
 
-  // Step validation — decimals must be resolved before advancing
   const step0Valid = sellAddr && isValidTokenAddress(sellToken) && sellInfo.symbol && sellDecimals != null
   const step1Valid = step0Valid && parsedSellAmount > 0n && !insufficientBalance
   const step2Valid = step1Valid && buyAddr && isValidTokenAddress(buyToken) && buyInfo.symbol && buyDecimals != null
@@ -134,10 +133,15 @@ export function CreateOrder() {
 
   if (!isConnected) {
     return (
-      <div className="text-center py-16">
-        <h2 className="text-xl font-semibold text-white mb-2">Connect your wallet</h2>
-        <p className="text-gray-400">Connect a wallet to create orders.</p>
-      </div>
+      <section className="surface px-6 py-10 text-center sm:px-8">
+        <p className="section-label">Wallet Required</p>
+        <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
+          Connect a wallet to create orders.
+        </h2>
+        <p className="mt-3 max-w-xl mx-auto text-sm leading-6 text-[var(--text-soft)]">
+          The order creation flow validates token metadata, pair state, and approvals before signing.
+        </p>
+      </section>
     )
   }
 
@@ -145,24 +149,35 @@ export function CreateOrder() {
 
   if (orderCreated) {
     return (
-      <div className="max-w-lg mx-auto py-16 text-center">
-        <div className="w-16 h-16 rounded-full bg-emerald-600/20 flex items-center justify-center mx-auto mb-4">
-          <span className="text-3xl text-emerald-400">{'\u2713'}</span>
+      <section className="surface mx-auto max-w-xl px-6 py-10 text-center sm:px-8">
+        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--accent-soft)] text-3xl text-[var(--accent)]">
+          {'\u2713'}
         </div>
-        <h2 className="text-xl font-semibold text-white mb-2">Order Created</h2>
-        <p className="text-gray-400 mb-6 text-sm break-all">Tx: {txHash}</p>
-        <button onClick={resetAll}
-          className="px-6 py-2.5 rounded-lg bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
-          Create Another
-        </button>
-      </div>
+        <p className="section-label mt-5">Order Created</p>
+        <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
+          Your OTC order is live.
+        </h2>
+        <p className="mt-3 text-sm text-[var(--text-soft)]">
+          The transaction has been submitted successfully.
+        </p>
+        <div className="surface-muted mt-6 px-4 py-4 text-left">
+          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Transaction Hash</div>
+          <div className="mt-2 break-all text-sm font-medium text-[var(--text-strong)]">{txHash}</div>
+        </div>
+        <div className="mt-6">
+          <button type="button" onClick={resetAll} className="primary-button">Create Another Order</button>
+        </div>
+      </section>
     )
   }
 
   return (
-    <div className="max-w-lg mx-auto">
-      <h1 className="text-xl font-semibold text-white mb-2">Create Order</h1>
-      <p className="text-sm text-gray-400 mb-6">Set up a new OTC order in 4 steps.</p>
+    <section className="surface mx-auto max-w-xl px-6 py-6 sm:px-8">
+      <div className="mb-6">
+        <p className="section-label">New Order</p>
+        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">Create Order</h1>
+        <p className="mt-2 text-sm text-[var(--text-soft)]">Set up a new OTC order in 4 steps.</p>
+      </div>
 
       <Steps current={step} total={4} />
 
@@ -170,11 +185,11 @@ export function CreateOrder() {
       {step === 0 && (
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">What token are you selling?</label>
+            <label className="block text-sm font-semibold text-[var(--text-strong)] mb-2">What token are you selling?</label>
             <input type="text" value={sellToken} onChange={e => setSellToken(e.target.value)}
               placeholder="Paste token address (0x...)"
-              autoFocus
-              className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-emerald-500 focus:outline-none" />
+              autoFocus autoComplete="off" spellCheck={false}
+              className="input-field" />
           </div>
 
           {sellAddr && sellInfo.symbol && sellDecimals != null && (
@@ -182,11 +197,10 @@ export function CreateOrder() {
           )}
 
           {sellToken && !sellAddr && (
-            <p className="text-red-400 text-sm">Enter a valid token address.</p>
+            <p className="text-sm font-medium text-[var(--danger)]">Enter a valid token address.</p>
           )}
 
-          <button onClick={() => setStep(1)} disabled={!step0Valid}
-            className="w-full py-3 rounded-xl font-medium bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+          <button type="button" onClick={() => setStep(1)} disabled={!step0Valid} className="primary-button w-full">
             Continue
           </button>
         </div>
@@ -195,41 +209,37 @@ export function CreateOrder() {
       {/* ── Step 1: Sell amount ─────────────────────────────── */}
       {step === 1 && (
         <div className="space-y-4">
-          {sellAddr && (
-            <TokenCard address={sellAddr} balance={sellBalance} decimals={sellDecimals!} label="Selling" />
+          {sellAddr && sellDecimals != null && (
+            <TokenCard address={sellAddr} balance={sellBalance} decimals={sellDecimals} label="Selling" />
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">How much do you want to sell?</label>
+            <label className="block text-sm font-semibold text-[var(--text-strong)] mb-2">How much do you want to sell?</label>
             <div className="relative">
               <input type="text" value={sellAmount} onChange={e => setSellAmount(e.target.value)}
-                placeholder="0.0" autoFocus
-                className="w-full px-4 py-3 pr-20 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-emerald-500 focus:outline-none text-lg" />
-              {sellBalance !== undefined && sellBalance > 0n && (
-                <button
-                  onClick={() => setSellAmount(formatUnits(sellBalance, sellDecimals!))}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 px-2 py-1 rounded text-xs bg-gray-700 hover:bg-gray-600 text-emerald-400 font-medium">
+                placeholder="0.0" autoFocus autoComplete="off" inputMode="decimal" spellCheck={false}
+                className="input-field pr-20 text-lg" />
+              {sellBalance !== undefined && sellBalance > 0n && sellDecimals != null && (
+                <button type="button"
+                  onClick={() => setSellAmount(formatUnits(sellBalance, sellDecimals))}
+                  className="secondary-button absolute right-3 top-1/2 min-h-0 -translate-y-1/2 px-3 py-1.5 text-xs">
                   MAX
                 </button>
               )}
             </div>
-            {sellBalance !== undefined && (
-              <p className="text-xs text-gray-500 mt-1">
-                Available: {formatTokenAmount(sellBalance, sellDecimals!)} {sellInfo.symbol}
+            {sellBalance !== undefined && sellDecimals != null && (
+              <p className="text-xs text-[var(--text-muted)] mt-2">
+                Available: <span className="numeric font-semibold text-[var(--text-strong)]">{formatTokenAmount(sellBalance, sellDecimals)}</span> {sellInfo.symbol}
               </p>
             )}
             {insufficientBalance && (
-              <p className="text-red-400 text-sm mt-1">Insufficient balance.</p>
+              <p className="text-sm font-medium text-[var(--danger)] mt-2">Insufficient balance.</p>
             )}
           </div>
 
           <div className="flex gap-3">
-            <button onClick={() => setStep(0)}
-              className="flex-1 py-3 rounded-xl font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
-              Back
-            </button>
-            <button onClick={() => setStep(2)} disabled={!step1Valid}
-              className="flex-1 py-3 rounded-xl font-medium bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            <button type="button" onClick={() => setStep(0)} className="ghost-button flex-1">Back</button>
+            <button type="button" onClick={() => setStep(2)} disabled={!step1Valid} className="primary-button flex-1">
               Continue
             </button>
           </div>
@@ -239,17 +249,17 @@ export function CreateOrder() {
       {/* ── Step 2: Buy token ──────────────────────────────── */}
       {step === 2 && (
         <div className="space-y-4">
-          <div className="rounded-xl bg-gray-900/50 border border-gray-800 p-3 flex items-center justify-between text-sm">
-            <span className="text-gray-400">Selling</span>
-            <span className="text-white font-medium">{sellAmount} {sellInfo.symbol}</span>
+          <div className="surface-muted px-4 py-3 flex items-center justify-between text-sm">
+            <span className="text-[var(--text-muted)]">Selling</span>
+            <span className="font-semibold text-[var(--text-strong)]">{sellAmount} {sellInfo.symbol}</span>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">What token do you want in return?</label>
+            <label className="block text-sm font-semibold text-[var(--text-strong)] mb-2">What token do you want in return?</label>
             <input type="text" value={buyToken} onChange={e => setBuyToken(e.target.value)}
               placeholder="Paste token address (0x...)"
-              autoFocus
-              className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-emerald-500 focus:outline-none" />
+              autoFocus autoComplete="off" spellCheck={false}
+              className="input-field" />
           </div>
 
           {buyAddr && buyInfo.symbol && buyDecimals != null && (
@@ -257,16 +267,12 @@ export function CreateOrder() {
           )}
 
           {sellToken && buyToken && sellToken.toLowerCase() === buyToken.toLowerCase() && (
-            <p className="text-red-400 text-sm">Cannot be the same as the sell token.</p>
+            <p className="text-sm font-medium text-[var(--danger)]">Cannot be the same as the sell token.</p>
           )}
 
           <div className="flex gap-3">
-            <button onClick={() => setStep(1)}
-              className="flex-1 py-3 rounded-xl font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
-              Back
-            </button>
-            <button onClick={() => setStep(3)} disabled={!step2Valid}
-              className="flex-1 py-3 rounded-xl font-medium bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
+            <button type="button" onClick={() => setStep(1)} className="ghost-button flex-1">Back</button>
+            <button type="button" onClick={() => setStep(3)} disabled={!step2Valid} className="primary-button flex-1">
               Continue
             </button>
           </div>
@@ -276,92 +282,87 @@ export function CreateOrder() {
       {/* ── Step 3: Buy amount + review + submit ───────────── */}
       {step === 3 && (
         <div className="space-y-4">
-          {/* Summary */}
-          <div className="rounded-xl bg-gray-900/50 border border-gray-800 p-4 space-y-3">
+          <div className="surface-muted px-4 py-4 space-y-3">
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-400">Selling</span>
-              <span className="text-white font-medium">{sellAmount} {sellInfo.symbol}</span>
+              <span className="text-[var(--text-muted)]">Selling</span>
+              <span className="font-semibold text-[var(--text-strong)]">{sellAmount} {sellInfo.symbol}</span>
             </div>
             <div className="flex justify-center">
-              <span className="text-gray-600 text-lg">{'\u2193'}</span>
+              <span className="text-lg text-[var(--text-muted)]">{'\u2193'}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-gray-400">Receiving</span>
-              <span className="text-gray-500">{buyInfo.symbol ?? '...'}</span>
+              <span className="text-[var(--text-muted)]">Receiving</span>
+              <span className="text-[var(--text-soft)]">{buyInfo.symbol ?? '...'}</span>
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-300 mb-2">
+            <label className="block text-sm font-semibold text-[var(--text-strong)] mb-2">
               How much {buyInfo.symbol ?? 'of the buy token'} do you want?
             </label>
             <input type="text" value={buyAmount} onChange={e => setBuyAmount(e.target.value)}
-              placeholder="0.0" autoFocus
-              className="w-full px-4 py-3 rounded-xl bg-gray-900 border border-gray-700 text-gray-100 placeholder-gray-500 focus:border-emerald-500 focus:outline-none text-lg" />
+              placeholder="0.0" autoFocus autoComplete="off" inputMode="decimal" spellCheck={false}
+              className="input-field text-lg" />
             {parsedSellAmount > 0n && parsedBuyAmount > 0n && (
-              <p className="text-xs text-gray-500 mt-1">
-                Rate: 1 {sellInfo.symbol} = {(Number(parsedBuyAmount) / Number(parsedSellAmount)).toFixed(6)} {buyInfo.symbol}
+              <p className="text-xs text-[var(--text-muted)] mt-2">
+                Rate: <span className="numeric font-semibold text-[var(--text-strong)]">1 {sellInfo.symbol} = {(Number(parsedBuyAmount) / Number(parsedSellAmount)).toFixed(6)} {buyInfo.symbol}</span>
               </p>
             )}
           </div>
 
-          {/* Pair / approval status */}
           {sellAddr && buyAddr && (
-            <div className="rounded-xl bg-gray-900/50 border border-gray-800 p-3 text-xs space-y-1.5">
+            <div className="surface-muted px-4 py-3 text-xs space-y-2">
               <div className="flex justify-between">
-                <span className="text-gray-500">Pair</span>
+                <span className="text-[var(--text-muted)]">Pair</span>
                 {pairExists
-                  ? <span className="text-emerald-400">Deployed</span>
-                  : <span className="text-yellow-400">Will be created first</span>}
+                  ? <span className="font-semibold text-[var(--accent)]">Deployed</span>
+                  : <span className="font-semibold text-[var(--warning)]">Will be created first</span>}
               </div>
               {pairExists && (
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Allowance</span>
+                  <span className="text-[var(--text-muted)]">Allowance</span>
                   {needsApproval
-                    ? <span className="text-yellow-400">Approval needed</span>
-                    : <span className="text-emerald-400">Sufficient</span>}
+                    ? <span className="font-semibold text-[var(--warning)]">Approval needed</span>
+                    : <span className="font-semibold text-[var(--accent)]">Sufficient</span>}
                 </div>
               )}
             </div>
           )}
 
-          {/* Action buttons */}
           <div className="flex gap-3">
-            <button onClick={() => setStep(2)}
-              className="py-3 px-5 rounded-xl font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 transition-colors">
-              Back
-            </button>
+            <button type="button" onClick={() => setStep(2)} className="ghost-button">Back</button>
 
             {!pairExists && step3Valid && (
-              <button onClick={() => sellAddr && buyAddr && createPair(sellAddr, buyAddr)}
+              <button type="button"
+                onClick={() => sellAddr && buyAddr && createPair(sellAddr, buyAddr)}
                 disabled={isCreatingPair}
-                className="flex-1 py-3 rounded-xl font-medium bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors">
-                {isCreatingPair ? 'Creating Pair...' : '1. Create Pair'}
+                className="primary-button flex-1">
+                {isCreatingPair ? 'Creating Pair\u2026' : '1. Create Pair'}
               </button>
             )}
 
             {pairExists && needsApproval && (
-              <button onClick={approve} disabled={isApproving}
-                className="flex-1 py-3 rounded-xl font-medium bg-yellow-600 hover:bg-yellow-500 text-white disabled:opacity-50 transition-colors">
-                {isApproving ? 'Approving...' : `Approve ${sellInfo.symbol}`}
+              <button type="button" onClick={approve} disabled={isApproving} className="warning-button flex-1">
+                {isApproving ? 'Approving\u2026' : `Approve ${sellInfo.symbol}`}
               </button>
             )}
 
             {pairExists && !needsApproval && (
-              <button onClick={() => {
+              <button type="button"
+                onClick={() => {
                   if (!pair || !parsedSellAmount || !parsedBuyAmount || sellDecimals == null || buyDecimals == null) return
                   createOrder(pair, sellToken0, sellAmount, buyAmount, sellDecimals, buyDecimals)
                 }}
                 disabled={!step3Valid || isCreatingOrder}
-                className="flex-1 py-3 rounded-xl font-medium bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-30 disabled:cursor-not-allowed transition-colors">
-                {isCreatingOrder ? 'Creating Order...' : 'Create Order'}
+                className="primary-button flex-1">
+                {isCreatingOrder ? 'Creating Order\u2026' : 'Create Order'}
               </button>
             )}
           </div>
 
-          {error && <p className="text-red-400 text-sm">Transaction failed. Check your wallet for details.</p>}
+          {error && <p className="text-sm font-medium text-[var(--danger)]">Transaction failed. Check your wallet for details.</p>}
         </div>
       )}
-    </div>
+    </section>
   )
 }

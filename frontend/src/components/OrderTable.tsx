@@ -183,7 +183,7 @@ export function OrderTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded-[1.5rem] border border-[var(--border-soft)] bg-white/72">
+    <div className="overflow-x-auto rounded-[1.5rem] border border-[var(--border-soft)] bg-white/72 dark:bg-[rgba(22,27,34,0.60)]">
       <table className="data-table">
         <caption className="sr-only">Selected pair orders with maker, amount, fill progress, and actions.</caption>
         <thead>
@@ -211,19 +211,19 @@ export function OrderTable({
             const status = [
               {
                 label: 'Active',
-                className: 'bg-emerald-500/15 text-emerald-700',
+                className: 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400',
               },
               {
                 label: 'Filled',
-                className: 'bg-sky-500/15 text-sky-700',
+                className: 'bg-sky-500/15 text-sky-700 dark:text-sky-400',
               },
               {
                 label: 'Cancelled',
-                className: 'bg-stone-400/20 text-stone-600',
+                className: 'bg-stone-400/20 text-stone-600 dark:text-stone-400',
               },
             ][order.status] ?? {
               label: 'Unknown',
-              className: 'bg-stone-300/20 text-stone-600',
+              className: 'bg-stone-300/20 text-stone-600 dark:text-stone-400',
             }
 
             return (

@@ -3,6 +3,13 @@ import { useAppKit } from '@reown/appkit/react'
 import { useAccount } from 'wagmi'
 import heroMark from '../assets/hero.png'
 import { shortenAddress } from '../utils/format'
+import { useTheme, type ThemePreference } from '../hooks/useTheme'
+
+const themeIcons: Record<ThemePreference, { icon: string; next: ThemePreference; label: string }> = {
+  light: { icon: '\u2600\uFE0F', next: 'dark', label: 'Light mode' },
+  dark: { icon: '\uD83C\uDF19', next: 'system', label: 'Dark mode' },
+  system: { icon: '\uD83D\uDDA5\uFE0F', next: 'light', label: 'System mode' },
+}
 
 const navLinks = [
   { to: '/', label: 'Order Book' },
@@ -14,6 +21,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
   const { open } = useAppKit()
   const { address, isConnected } = useAccount()
   const location = useLocation()
+  const { preference, setPreference } = useTheme()
+  const currentTheme = themeIcons[preference]
 
   return (
     <div className="min-h-screen">
@@ -76,9 +85,20 @@ export function Layout({ children }: { children: React.ReactNode }) {
                     })}
                   </nav>
 
-                  <span className="kpi-pill self-start lg:self-auto">
-                    {isConnected ? 'Wallet Connected' : 'Wallet Required'}
-                  </span>
+                  <div className="flex items-center gap-2 self-start lg:self-auto">
+                    <button
+                      type="button"
+                      onClick={() => setPreference(currentTheme.next)}
+                      className="ghost-button min-h-0 px-2.5 py-2 text-base"
+                      aria-label={`${currentTheme.label}. Click to switch.`}
+                      title={currentTheme.label}
+                    >
+                      {currentTheme.icon}
+                    </button>
+                    <span className="kpi-pill">
+                      {isConnected ? 'Wallet Connected' : 'Wallet Required'}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -24,7 +24,7 @@ export function TokenBadge({ address }: { address: `0x${string}` }) {
 
   return (
     <span
-      className="inline-flex min-w-0 items-center gap-2 rounded-full border border-[var(--border-soft)] bg-white/70 px-2.5 py-1.5 text-sm shadow-[0_10px_24px_rgba(33,44,39,0.06)]"
+      className="inline-flex min-w-0 items-center gap-2 rounded-full border border-[var(--border-soft)] bg-white/70 dark:bg-[rgba(22,27,34,0.50)] px-2.5 py-1.5 text-sm shadow-[0_10px_24px_rgba(33,44,39,0.06)]"
       title={address}
     >
       {logoURI && !imgError ? (
