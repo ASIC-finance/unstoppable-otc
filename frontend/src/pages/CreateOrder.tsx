@@ -19,17 +19,17 @@ function TokenCard({ address, balance, decimals, label }: {
   const logo = useTokenLogo(address)
 
   if (isLoading) {
-    return <div className="surface-muted h-20 animate-pulse" />
+    return <div className="token-panel h-20 animate-pulse" />
   }
 
   return (
-    <div className="surface-muted px-4 py-4">
-      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)] mb-2">{label}</div>
+    <div className="token-panel">
+      <div className="eyebrow mb-2">{label}</div>
       <div className="flex items-center gap-3">
         {logo ? (
-          <img src={logo} alt="" className="w-10 h-10 rounded-full" />
+          <img src={logo} alt="" width={40} height={40} className="h-10 w-10 rounded-full" />
         ) : (
-          <span className="w-10 h-10 rounded-full bg-[var(--surface-dark)] flex items-center justify-center text-sm font-bold text-[var(--text-inverse)]">
+          <span className="token-avatar token-avatar-lg">
             {(symbol ?? '?').slice(0, 2).toUpperCase()}
           </span>
         )}
@@ -40,7 +40,7 @@ function TokenCard({ address, balance, decimals, label }: {
         {balance !== undefined && (
           <div className="text-right">
             <div className="text-sm font-semibold text-[var(--text-strong)] numeric">{formatTokenAmount(balance, decimals)}</div>
-            <div className="text-xs font-medium uppercase tracking-[0.14em] text-[var(--text-muted)]">Balance</div>
+            <div className="eyebrow mb-0 mt-1">Balance</div>
           </div>
         )}
       </div>
@@ -50,21 +50,22 @@ function TokenCard({ address, balance, decimals, label }: {
 
 // ── Step indicator ──────────────────────────────────────────────
 
+const stepLabels = ['Sell Token', 'Sell Size', 'Buy Token', 'Review']
+
 function Steps({ current, total }: { current: number; total: number }) {
   return (
-    <div className="flex items-center gap-2 mb-6">
+    <div className="ticket-steps" aria-label="Create order progress">
       {Array.from({ length: total }, (_, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold border transition-colors ${
-            i < current ? 'bg-[var(--accent)] border-[var(--accent)] text-white'
-            : i === current ? 'border-[var(--accent)] text-[var(--accent)]'
-            : 'border-[var(--border-strong)] text-[var(--text-muted)]'
-          }`}>
+        <div
+          key={i}
+          className="ticket-step"
+          data-state={i < current ? 'done' : i === current ? 'current' : 'pending'}
+          aria-current={i === current ? 'step' : undefined}
+        >
+          <span className="ticket-step-index">
             {i < current ? '\u2713' : i + 1}
-          </div>
-          {i < total - 1 && (
-            <div className={`w-8 h-px ${i < current ? 'bg-[var(--accent)]' : 'bg-[var(--border-strong)]'}`} />
-          )}
+          </span>
+          <span className="truncate">{stepLabels[i]}</span>
         </div>
       ))}
     </div>
@@ -131,16 +132,34 @@ export function CreateOrder() {
     resetOrder()
   }
 
+  const sellSummary = sellAmount && sellInfo.symbol ? `${sellAmount} ${sellInfo.symbol}` : sellInfo.symbol ?? 'Not Set'
+  const buySummary = buyAmount && buyInfo.symbol ? `${buyAmount} ${buyInfo.symbol}` : buyInfo.symbol ?? 'Not Set'
+  const pairSummary = !sellAddr || !buyAddr
+    ? 'Not Checked'
+    : pairExists
+      ? 'Deployed'
+      : 'Create Pair First'
+  const allowanceSummary = !pairExists
+    ? 'After Pair'
+    : needsApproval
+      ? 'Approval Needed'
+      : 'Sufficient'
+
   if (!isConnected) {
     return (
-      <section className="surface px-6 py-10 text-center sm:px-8">
-        <p className="section-label">Wallet Required</p>
-        <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
-          Connect a wallet to create orders.
-        </h2>
-        <p className="mt-3 max-w-xl mx-auto text-sm leading-6 text-[var(--text-soft)]">
-          The order creation flow validates token metadata, pair state, and approvals before signing.
-        </p>
+      <section className="workspace-header">
+        <div>
+          <p className="eyebrow">Wallet Required</p>
+          <h1 className="workspace-title">
+            Connect a wallet to create OTC orders.
+          </h1>
+          <p className="workspace-copy">
+            The ticket validates token metadata, pair state, and approvals before signing.
+          </p>
+        </div>
+        <div className="workspace-meta">
+          <span className="kpi-pill">Execution ticket locked</span>
+        </div>
       </section>
     )
   }
@@ -149,22 +168,19 @@ export function CreateOrder() {
 
   if (orderCreated) {
     return (
-      <section className="surface mx-auto max-w-xl px-6 py-10 text-center sm:px-8">
-        <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--accent-soft)] text-3xl text-[var(--accent)]">
-          {'\u2713'}
-        </div>
-        <p className="section-label mt-5">Order Created</p>
-        <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
+      <section className="ticket-panel mx-auto max-w-2xl text-center">
+        <span className="status-pill status-active mx-auto mb-4">Order Created</span>
+        <h1 className="workspace-title">
           Your OTC order is live.
-        </h2>
-        <p className="mt-3 text-sm text-[var(--text-soft)]">
+        </h1>
+        <p className="workspace-copy mx-auto">
           The transaction has been submitted successfully.
         </p>
-        <div className="surface-muted mt-6 px-4 py-4 text-left">
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--text-muted)]">Transaction Hash</div>
+        <div className="token-panel mt-6 text-left">
+          <div className="eyebrow">Transaction Hash</div>
           <div className="mt-2 break-all text-sm font-medium text-[var(--text-strong)]">{txHash}</div>
         </div>
-        <div className="mt-6">
+        <div className="mt-6 flex justify-center">
           <button type="button" onClick={resetAll} className="primary-button">Create Another Order</button>
         </div>
       </section>
@@ -172,197 +188,258 @@ export function CreateOrder() {
   }
 
   return (
-    <section className="surface mx-auto max-w-xl px-6 py-6 sm:px-8">
-      <div className="mb-6">
-        <p className="section-label">New Order</p>
-        <h1 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">Create Order</h1>
-        <p className="mt-2 text-sm text-[var(--text-soft)]">Set up a new OTC order in 4 steps.</p>
-      </div>
-
-      <Steps current={step} total={4} />
-
-      {/* ── Step 0: Sell token ──────────────────────────────── */}
-      {step === 0 && (
-        <div className="space-y-4">
+    <section className="ticket-shell">
+      <div className="ticket-panel">
+        <div className="ticket-heading">
           <div>
-            <label className="block text-sm font-semibold text-[var(--text-strong)] mb-2">What token are you selling?</label>
-            <input type="text" value={sellToken} onChange={e => setSellToken(e.target.value)}
-              placeholder="Paste token address (0x...)"
-              autoFocus autoComplete="off" spellCheck={false}
-              className="input-field" />
+            <p className="eyebrow">New Order</p>
+            <h1 className="workspace-title">Execution Ticket</h1>
+            <p className="workspace-copy">Define the route, size, quote, and required approval.</p>
           </div>
-
-          {sellAddr && sellInfo.symbol && sellDecimals != null && (
-            <TokenCard address={sellAddr} balance={sellBalance} decimals={sellDecimals} label="Sell token" />
-          )}
-
-          {sellToken && !sellAddr && (
-            <p className="text-sm font-medium text-[var(--danger)]">Enter a valid token address.</p>
-          )}
-
-          <button type="button" onClick={() => setStep(1)} disabled={!step0Valid} className="primary-button w-full">
-            Continue
-          </button>
+          <span className="kpi-pill">Step {step + 1} of 4</span>
         </div>
-      )}
 
-      {/* ── Step 1: Sell amount ─────────────────────────────── */}
-      {step === 1 && (
-        <div className="space-y-4">
-          {sellAddr && sellDecimals != null && (
-            <TokenCard address={sellAddr} balance={sellBalance} decimals={sellDecimals} label="Selling" />
-          )}
+        <Steps current={step} total={4} />
 
-          <div>
-            <label className="block text-sm font-semibold text-[var(--text-strong)] mb-2">How much do you want to sell?</label>
-            <div className="relative">
-              <input type="text" value={sellAmount} onChange={e => setSellAmount(e.target.value)}
-                placeholder="0.0" autoFocus autoComplete="off" inputMode="decimal" spellCheck={false}
-                className="input-field pr-20 text-lg" />
-              {sellBalance !== undefined && sellBalance > 0n && sellDecimals != null && (
-                <button type="button"
-                  onClick={() => setSellAmount(formatUnits(sellBalance, sellDecimals))}
-                  className="secondary-button absolute right-3 top-1/2 min-h-0 -translate-y-1/2 px-3 py-1.5 text-xs">
-                  MAX
-                </button>
+        {/* ── Step 0: Sell token ──────────────────────────────── */}
+        {step === 0 && (
+          <div className="ticket-body">
+            <div className="field-stack">
+              <label htmlFor="sell-token" className="field-label">Sell Token Address</label>
+              <input
+                id="sell-token"
+                name="sell_token"
+                type="text"
+                value={sellToken}
+                onChange={e => setSellToken(e.target.value)}
+                placeholder="Paste token address, 0x…"
+                autoComplete="off"
+                spellCheck={false}
+                className="input-field"
+              />
+            </div>
+
+            {sellAddr && sellInfo.symbol && sellDecimals != null && (
+              <TokenCard address={sellAddr} balance={sellBalance} decimals={sellDecimals} label="Sell Token" />
+            )}
+
+            {sellToken && !sellAddr && (
+              <p className="text-sm font-medium text-[var(--danger)]">Enter a valid token address.</p>
+            )}
+
+            <button type="button" onClick={() => setStep(1)} disabled={!step0Valid} className="primary-button w-full">
+              Set Sell Amount
+            </button>
+          </div>
+        )}
+
+        {/* ── Step 1: Sell amount ─────────────────────────────── */}
+        {step === 1 && (
+          <div className="ticket-body">
+            {sellAddr && sellDecimals != null && (
+              <TokenCard address={sellAddr} balance={sellBalance} decimals={sellDecimals} label="Selling" />
+            )}
+
+            <div className="field-stack">
+              <label htmlFor="sell-amount" className="field-label">Sell Amount</label>
+              <div className="relative">
+                <input
+                  id="sell-amount"
+                  name="sell_amount"
+                  type="text"
+                  value={sellAmount}
+                  onChange={e => setSellAmount(e.target.value)}
+                  placeholder="0.00…"
+                  autoComplete="off"
+                  inputMode="decimal"
+                  spellCheck={false}
+                  className="input-field pr-20 text-lg"
+                />
+                {sellBalance !== undefined && sellBalance > 0n && sellDecimals != null && (
+                  <button type="button"
+                    onClick={() => setSellAmount(formatUnits(sellBalance, sellDecimals))}
+                    className="secondary-button absolute right-3 top-1/2 min-h-0 -translate-y-1/2 px-3 py-1.5 text-xs">
+                    Max
+                  </button>
+                )}
+              </div>
+              {sellBalance !== undefined && sellDecimals != null && (
+                <p className="text-xs text-[var(--text-muted)]">
+                  Available: <span className="numeric font-semibold text-[var(--text-strong)]">{formatTokenAmount(sellBalance, sellDecimals)}</span> {sellInfo.symbol}
+                </p>
+              )}
+              {insufficientBalance && (
+                <p className="text-sm font-medium text-[var(--danger)]">Insufficient balance.</p>
               )}
             </div>
-            {sellBalance !== undefined && sellDecimals != null && (
-              <p className="text-xs text-[var(--text-muted)] mt-2">
-                Available: <span className="numeric font-semibold text-[var(--text-strong)]">{formatTokenAmount(sellBalance, sellDecimals)}</span> {sellInfo.symbol}
-              </p>
-            )}
-            {insufficientBalance && (
-              <p className="text-sm font-medium text-[var(--danger)] mt-2">Insufficient balance.</p>
-            )}
+
+            <div className="ticket-actions">
+              <button type="button" onClick={() => setStep(0)} className="ghost-button">Back</button>
+              <button type="button" onClick={() => setStep(2)} disabled={!step1Valid} className="primary-button">
+                Choose Buy Token
+              </button>
+            </div>
           </div>
+        )}
 
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(0)} className="ghost-button flex-1">Back</button>
-            <button type="button" onClick={() => setStep(2)} disabled={!step1Valid} className="primary-button flex-1">
-              Continue
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 2: Buy token ──────────────────────────────── */}
-      {step === 2 && (
-        <div className="space-y-4">
-          <div className="surface-muted px-4 py-3 flex items-center justify-between text-sm">
-            <span className="text-[var(--text-muted)]">Selling</span>
-            <span className="font-semibold text-[var(--text-strong)]">{sellAmount} {sellInfo.symbol}</span>
-          </div>
-
-          <div>
-            <label className="block text-sm font-semibold text-[var(--text-strong)] mb-2">What token do you want in return?</label>
-            <input type="text" value={buyToken} onChange={e => setBuyToken(e.target.value)}
-              placeholder="Paste token address (0x...)"
-              autoFocus autoComplete="off" spellCheck={false}
-              className="input-field" />
-          </div>
-
-          {buyAddr && buyInfo.symbol && buyDecimals != null && (
-            <TokenCard address={buyAddr} decimals={buyDecimals} label="Buy token" />
-          )}
-
-          {sellToken && buyToken && sellToken.toLowerCase() === buyToken.toLowerCase() && (
-            <p className="text-sm font-medium text-[var(--danger)]">Cannot be the same as the sell token.</p>
-          )}
-
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(1)} className="ghost-button flex-1">Back</button>
-            <button type="button" onClick={() => setStep(3)} disabled={!step2Valid} className="primary-button flex-1">
-              Continue
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* ── Step 3: Buy amount + review + submit ───────────── */}
-      {step === 3 && (
-        <div className="space-y-4">
-          <div className="surface-muted px-4 py-4 space-y-3">
-            <div className="flex items-center justify-between text-sm">
+        {/* ── Step 2: Buy token ──────────────────────────────── */}
+        {step === 2 && (
+          <div className="ticket-body">
+            <div className="token-panel flex items-center justify-between gap-3 text-sm">
               <span className="text-[var(--text-muted)]">Selling</span>
               <span className="font-semibold text-[var(--text-strong)]">{sellAmount} {sellInfo.symbol}</span>
             </div>
-            <div className="flex justify-center">
-              <span className="text-lg text-[var(--text-muted)]">{'\u2193'}</span>
-            </div>
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[var(--text-muted)]">Receiving</span>
-              <span className="text-[var(--text-soft)]">{buyInfo.symbol ?? '...'}</span>
-            </div>
-          </div>
 
-          <div>
-            <label className="block text-sm font-semibold text-[var(--text-strong)] mb-2">
-              How much {buyInfo.symbol ?? 'of the buy token'} do you want?
-            </label>
-            <input type="text" value={buyAmount} onChange={e => setBuyAmount(e.target.value)}
-              placeholder="0.0" autoFocus autoComplete="off" inputMode="decimal" spellCheck={false}
-              className="input-field text-lg" />
-            {parsedSellAmount > 0n && parsedBuyAmount > 0n && (
-              <p className="text-xs text-[var(--text-muted)] mt-2">
-                Rate: <span className="numeric font-semibold text-[var(--text-strong)]">1 {sellInfo.symbol} = {(Number(parsedBuyAmount) / Number(parsedSellAmount)).toFixed(6)} {buyInfo.symbol}</span>
-              </p>
+            <div className="field-stack">
+              <label htmlFor="buy-token" className="field-label">Buy Token Address</label>
+              <input
+                id="buy-token"
+                name="buy_token"
+                type="text"
+                value={buyToken}
+                onChange={e => setBuyToken(e.target.value)}
+                placeholder="Paste token address, 0x…"
+                autoComplete="off"
+                spellCheck={false}
+                className="input-field"
+              />
+            </div>
+
+            {buyAddr && buyInfo.symbol && buyDecimals != null && (
+              <TokenCard address={buyAddr} decimals={buyDecimals} label="Buy Token" />
             )}
-          </div>
 
-          {sellAddr && buyAddr && (
-            <div className="surface-muted px-4 py-3 text-xs space-y-2">
-              <div className="flex justify-between">
-                <span className="text-[var(--text-muted)]">Pair</span>
-                {pairExists
-                  ? <span className="font-semibold text-[var(--accent)]">Deployed</span>
-                  : <span className="font-semibold text-[var(--warning)]">Will be created first</span>}
+            {sellToken && buyToken && sellToken.toLowerCase() === buyToken.toLowerCase() && (
+              <p className="text-sm font-medium text-[var(--danger)]">Cannot be the same as the sell token.</p>
+            )}
+
+            <div className="ticket-actions">
+              <button type="button" onClick={() => setStep(1)} className="ghost-button">Back</button>
+              <button type="button" onClick={() => setStep(3)} disabled={!step2Valid} className="primary-button">
+                Review Order
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── Step 3: Buy amount + review + submit ───────────── */}
+        {step === 3 && (
+          <div className="ticket-body">
+            <div className="token-panel space-y-3">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-[var(--text-muted)]">Selling</span>
+                <span className="font-semibold text-[var(--text-strong)]">{sellAmount} {sellInfo.symbol}</span>
               </div>
-              {pairExists && (
-                <div className="flex justify-between">
-                  <span className="text-[var(--text-muted)]">Allowance</span>
-                  {needsApproval
-                    ? <span className="font-semibold text-[var(--warning)]">Approval needed</span>
-                    : <span className="font-semibold text-[var(--accent)]">Sufficient</span>}
-                </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-[var(--text-muted)]">Receiving</span>
+                <span className="font-semibold text-[var(--text-strong)]">{buyInfo.symbol ?? 'Pending'}</span>
+              </div>
+            </div>
+
+            <div className="field-stack">
+              <label htmlFor="buy-amount" className="field-label">
+                Requested {buyInfo.symbol ?? 'Buy Token'} Amount
+              </label>
+              <input
+                id="buy-amount"
+                name="buy_amount"
+                type="text"
+                value={buyAmount}
+                onChange={e => setBuyAmount(e.target.value)}
+                placeholder="0.00…"
+                autoComplete="off"
+                inputMode="decimal"
+                spellCheck={false}
+                className="input-field text-lg"
+              />
+              {parsedSellAmount > 0n && parsedBuyAmount > 0n && (
+                <p className="text-xs text-[var(--text-muted)]">
+                  Rate: <span className="numeric font-semibold text-[var(--text-strong)]">1 {sellInfo.symbol} = {(Number(parsedBuyAmount) / Number(parsedSellAmount)).toFixed(6)} {buyInfo.symbol}</span>
+                </p>
               )}
             </div>
-          )}
 
-          <div className="flex gap-3">
-            <button type="button" onClick={() => setStep(2)} className="ghost-button">Back</button>
-
-            {!pairExists && step3Valid && (
-              <button type="button"
-                onClick={() => sellAddr && buyAddr && createPair(sellAddr, buyAddr)}
-                disabled={isCreatingPair}
-                className="primary-button flex-1">
-                {isCreatingPair ? 'Creating Pair\u2026' : '1. Create Pair'}
-              </button>
+            {sellAddr && buyAddr && (
+              <div className="token-panel space-y-2 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-[var(--text-muted)]">Pair</span>
+                  {pairExists
+                    ? <span className="font-semibold text-[var(--accent)]">Deployed</span>
+                    : <span className="font-semibold text-[var(--warning)]">Create pair first</span>}
+                </div>
+                {pairExists && (
+                  <div className="flex justify-between">
+                    <span className="text-[var(--text-muted)]">Allowance</span>
+                    {needsApproval
+                      ? <span className="font-semibold text-[var(--warning)]">Approval needed</span>
+                      : <span className="font-semibold text-[var(--accent)]">Sufficient</span>}
+                  </div>
+                )}
+              </div>
             )}
 
-            {pairExists && needsApproval && (
-              <button type="button" onClick={approve} disabled={isApproving} className="warning-button flex-1">
-                {isApproving ? 'Approving\u2026' : `Approve ${sellInfo.symbol}`}
-              </button>
-            )}
+            <div className="ticket-actions">
+              <button type="button" onClick={() => setStep(2)} className="ghost-button">Back</button>
 
-            {pairExists && !needsApproval && (
-              <button type="button"
-                onClick={() => {
-                  if (!pair || !parsedSellAmount || !parsedBuyAmount || sellDecimals == null || buyDecimals == null) return
-                  createOrder(pair, sellToken0, sellAmount, buyAmount, sellDecimals, buyDecimals)
-                }}
-                disabled={!step3Valid || isCreatingOrder}
-                className="primary-button flex-1">
-                {isCreatingOrder ? 'Creating Order\u2026' : 'Create Order'}
-              </button>
-            )}
+              {!pairExists && step3Valid && (
+                <button type="button"
+                  onClick={() => sellAddr && buyAddr && createPair(sellAddr, buyAddr)}
+                  disabled={isCreatingPair}
+                  className="primary-button">
+                  {isCreatingPair ? 'Creating Pair\u2026' : 'Create Pair'}
+                </button>
+              )}
+
+              {pairExists && needsApproval && (
+                <button type="button" onClick={approve} disabled={isApproving} className="warning-button">
+                  {isApproving ? 'Approving\u2026' : `Approve ${sellInfo.symbol}`}
+                </button>
+              )}
+
+              {pairExists && !needsApproval && (
+                <button type="button"
+                  onClick={() => {
+                    if (!pair || !parsedSellAmount || !parsedBuyAmount || sellDecimals == null || buyDecimals == null) return
+                    createOrder(pair, sellToken0, sellAmount, buyAmount, sellDecimals, buyDecimals)
+                  }}
+                  disabled={!step3Valid || isCreatingOrder}
+                  className="primary-button">
+                  {isCreatingOrder ? 'Creating Order\u2026' : 'Submit Order'}
+                </button>
+              )}
+            </div>
+
+            {error && <p className="text-sm font-medium text-[var(--danger)]">Transaction failed. Check your wallet for details.</p>}
           </div>
+        )}
+      </div>
 
-          {error && <p className="text-sm font-medium text-[var(--danger)]">Transaction failed. Check your wallet for details.</p>}
+      <aside className="ticket-summary" aria-label="Order summary">
+        <div>
+          <p className="eyebrow">Ticket Summary</p>
+          <h2 className="m-0 text-lg font-extrabold text-[var(--text-strong)]">Pre-trade checks</h2>
         </div>
-      )}
+        <div className="summary-row">
+          <span>Wallet</span>
+          <strong>{address ? `${address.slice(0, 6)}…${address.slice(-4)}` : 'Not Connected'}</strong>
+        </div>
+        <div className="summary-row">
+          <span>Selling</span>
+          <strong>{sellSummary}</strong>
+        </div>
+        <div className="summary-row">
+          <span>Receiving</span>
+          <strong>{buySummary}</strong>
+        </div>
+        <div className="summary-row">
+          <span>Pair</span>
+          <strong>{pairSummary}</strong>
+        </div>
+        <div className="summary-row">
+          <span>Allowance</span>
+          <strong>{allowanceSummary}</strong>
+        </div>
+      </aside>
     </section>
   )
 }
