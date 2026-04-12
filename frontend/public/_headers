@@ -1,0 +1,19 @@
+/*
+  X-Frame-Options: DENY
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  X-XSS-Protection: 0
+  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://rpc.pulsechain.com https://eth.drpc.org https://*.walletconnect.com https://*.reown.com https://api.web3modal.com https://raw.githubusercontent.com wss://relay.walletconnect.com; frame-src 'self' https://verify.walletconnect.com https://secure.walletconnect.com; object-src 'none'; base-uri 'self'
+
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/index.html
+  Cache-Control: no-cache
+
+/favicon.svg
+  Cache-Control: public, max-age=86400
+
+/icons.svg
+  Cache-Control: public, max-age=86400
