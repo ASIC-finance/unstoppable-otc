@@ -1,6 +1,11 @@
 {
   "name": "unstoppable-otc-contracts",
   "private": true,
+  "scripts": {
+    "test": "hardhat test",
+    "test:forge": "forge test -vvv",
+    "test:all": "hardhat test && forge test -vvv"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "hardhat": "^2.22.0"
