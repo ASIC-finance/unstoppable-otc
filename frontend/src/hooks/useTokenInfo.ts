@@ -1,32 +1,35 @@
-import { useReadContracts } from 'wagmi'
+import { useReadContract } from 'wagmi'
 import { erc20Abi } from 'viem'
 
 export function useTokenInfo(tokenAddress: `0x${string}` | undefined) {
   const enabled = !!tokenAddress && tokenAddress !== '0x0000000000000000000000000000000000000000'
 
-  const contract = {
+  const nameResult = useReadContract({
     address: tokenAddress!,
     abi: erc20Abi,
-  }
-
-  const result = useReadContracts({
-    contracts: [
-      { ...contract, functionName: 'name' },
-      { ...contract, functionName: 'symbol' },
-      { ...contract, functionName: 'decimals' },
-    ],
-    query: { enabled },
+    functionName: 'name',
+    query: { enabled, retry: 1 },
   })
 
-  const name = result.data?.[0]?.result as string | undefined
-  const symbol = result.data?.[1]?.result as string | undefined
-  const decimals = result.data?.[2]?.result as number | undefined
+  const symbolResult = useReadContract({
+    address: tokenAddress!,
+    abi: erc20Abi,
+    functionName: 'symbol',
+    query: { enabled, retry: 1 },
+  })
+
+  const decimalsResult = useReadContract({
+    address: tokenAddress!,
+    abi: erc20Abi,
+    functionName: 'decimals',
+    query: { enabled, retry: 1 },
+  })
 
   return {
-    name,
-    symbol,
-    decimals,
-    isLoading: result.isLoading,
-    isError: result.isError,
+    name: nameResult.data as string | undefined,
+    symbol: symbolResult.data as string | undefined,
+    decimals: decimalsResult.data as number | undefined,
+    isLoading: (enabled && nameResult.isLoading) || (enabled && symbolResult.isLoading) || (enabled && decimalsResult.isLoading),
+    isError: decimalsResult.isError, // decimals is the critical one
   }
 }

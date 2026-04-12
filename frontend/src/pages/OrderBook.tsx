@@ -8,85 +8,105 @@ import { TokenBadge } from '../components/TokenBadge'
 
 const ORDERS_PER_PAIR = 20
 
-// ── Single pair section that loads its own data ─────────────────
-
 function PairSection({ pairAddress, isSelected, onSelect }: {
-  pairAddress: `0x${string}`; isSelected: boolean; onSelect: () => void
+  pairAddress: `0x${string}`
+  isSelected: boolean
+  onSelect: () => void
 }) {
   const { token0, token1 } = usePairTokens(pairAddress)
   const { data: activeCount, refetch: refetchCount } = useActiveOrderCount(pairAddress)
   const count = Number(activeCount ?? 0n)
   const { data, isLoading, refetch: refetchOrders } = useActiveOrders(
-    isSelected ? pairAddress : undefined, 0, ORDERS_PER_PAIR
+    isSelected ? pairAddress : undefined,
+    0,
+    ORDERS_PER_PAIR,
   )
-  const refetch = () => { refetchOrders(); refetchCount() }
+
+  const refetch = () => {
+    refetchOrders()
+    refetchCount()
+  }
 
   const orderIds = data ? [...data[0]] : []
   const orders = data ? [...data[1]] : []
+  const panelId = `pair-${pairAddress.toLowerCase()}`
 
   return (
-    <div className="border border-gray-800 rounded-xl overflow-hidden">
-      {/* Pair header — always visible, clickable */}
+    <section className={`surface surface-interactive overflow-hidden ${isSelected ? 'bg-white/94' : 'bg-white/76'}`}>
       <button
+        type="button"
         onClick={onSelect}
-        className={`w-full flex items-center justify-between px-4 py-3 text-left transition-colors ${
-          isSelected ? 'bg-gray-900' : 'bg-gray-900/50 hover:bg-gray-900'
-        }`}
+        aria-expanded={isSelected}
+        aria-controls={panelId}
+        className="flex w-full items-center justify-between gap-4 px-5 py-5 text-left"
       >
-        <div className="flex items-center gap-2">
-          {token0 && <TokenBadge address={token0} />}
-          <span className="text-gray-500">/</span>
-          {token1 && <TokenBadge address={token1} />}
+        <div className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <span className="section-label mb-0">Pair</span>
+            <span className={`status-pill ${count > 0 ? 'bg-emerald-500/15 text-emerald-700' : 'bg-stone-300/25 text-stone-600'}`}>
+              <span className="numeric">{count}</span> active
+            </span>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {token0 && <TokenBadge address={token0} />}
+            <span className="text-sm font-semibold text-[var(--text-muted)]">/</span>
+            {token1 && <TokenBadge address={token1} />}
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <span className={`text-xs px-2 py-0.5 rounded-full ${
-            count > 0 ? 'bg-emerald-600/20 text-emerald-400' : 'bg-gray-800 text-gray-500'
-          }`}>
-            {count} active
+
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="hidden text-sm font-medium text-[var(--text-soft)] sm:inline">
+            {isSelected ? 'Inspecting Orders' : 'Open Book'}
           </span>
-          <span className={`text-gray-500 text-sm transition-transform ${isSelected ? 'rotate-180' : ''}`}>
+          <span
+            className={`inline-flex h-10 w-10 items-center justify-center rounded-full border border-[var(--border-soft)] bg-white/70 text-lg text-[var(--text-soft)] transition-transform ${isSelected ? 'rotate-180' : ''}`}
+            aria-hidden="true"
+          >
             {'\u25BE'}
           </span>
         </div>
       </button>
 
-      {/* Expanded order list */}
       {isSelected && (
-        <div className="border-t border-gray-800">
+        <div id={panelId} className="border-t border-[var(--border-soft)] px-4 pb-4 pt-4">
           {isLoading && (
-            <p className="text-gray-500 text-center py-6 text-sm">Loading orders...</p>
+            <p className="py-8 text-center text-sm text-[var(--text-muted)]" aria-live="polite">
+              Loading orders…
+            </p>
           )}
 
           {!isLoading && count === 0 && (
-            <p className="text-gray-500 text-center py-6 text-sm">No active orders.</p>
-          )}
-
-          {!isLoading && orders.length > 0 && token0 && token1 && (
-            <div className="px-2">
-              <OrderTable
-                orders={orders}
-                orderIds={orderIds.map(Number)}
-                pairAddress={pairAddress}
-                token0={token0}
-                token1={token1}
-                showFillAction
-                refetch={refetch}
-              />
+            <div className="surface-muted px-5 py-8 text-center">
+              <p className="text-sm font-semibold text-[var(--text-strong)]">No active orders.</p>
+              <p className="mt-1 text-sm text-[var(--text-soft)]">
+                This pair is deployed, but there is nothing actionable in the book right now.
+              </p>
             </div>
           )}
 
+          {!isLoading && orders.length > 0 && token0 && token1 && (
+            <OrderTable
+              orders={orders}
+              orderIds={orderIds.map(Number)}
+              pairAddress={pairAddress}
+              token0={token0}
+              token1={token1}
+              showFillAction
+              refetch={refetch}
+            />
+          )}
+
           {count > ORDERS_PER_PAIR && (
-            <p className="text-xs text-gray-500 text-center py-2">
-              Showing {ORDERS_PER_PAIR} of {count} — use pair search for full pagination.
+            <p className="pt-3 text-center text-xs font-medium text-[var(--text-muted)]">
+              Showing {ORDERS_PER_PAIR} of {count}. Use pair search to inspect a specific route faster.
             </p>
           )}
         </div>
       )}
-    </div>
+    </section>
   )
 }
-
-// ── Main page ───────────────────────────────────────────────────
 
 export function OrderBook() {
   const { isConnected } = useAccount()
@@ -95,105 +115,148 @@ export function OrderBook() {
   const [searchB, setSearchB] = useState('')
   const [showSearch, setShowSearch] = useState(false)
 
-  // Load all pairs
   const { data: pairCount } = useAllPairsLength()
   const total = Number(pairCount ?? 0n)
   const { data: pairAddresses, isLoading: loadingPairs } = useAllPairs(0, Math.min(total, 100))
 
-  // Search: look up a specific pair
   const searchAddrA = isAddress(search) ? search as `0x${string}` : undefined
   const searchAddrB = isAddress(searchB) ? searchB as `0x${string}` : undefined
   const { data: searchPairAddr } = usePairAddress(searchAddrA, searchAddrB)
   const searchPairExists = searchPairAddr && searchPairAddr !== '0x0000000000000000000000000000000000000000'
   const searchPair = searchPairExists ? searchPairAddr as `0x${string}` : undefined
+  const pairs = pairAddresses ? [...pairAddresses] : []
 
   if (!isConnected) {
     return (
-      <div className="text-center py-16">
-        <h2 className="text-xl font-semibold text-white mb-2">Connect your wallet</h2>
-        <p className="text-gray-400">Connect a wallet to browse the order book.</p>
-      </div>
+      <section className="surface px-6 py-8 sm:px-8">
+        <p className="section-label">Wallet Required</p>
+        <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)]">
+          Connect a wallet to inspect the live order book.
+        </h2>
+        <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--text-soft)]">
+          The current view is read-only until a wallet is connected. Once connected, you can inspect maker terms and fill directly from the selected pair.
+        </p>
+      </section>
     )
   }
 
-  const pairs = pairAddresses ? [...pairAddresses] : []
-
   return (
-    <div>
-      <div className="flex items-center justify-between mb-4">
-        <div>
-          <h1 className="text-xl font-semibold text-white">Order Book</h1>
-          {total > 0 && (
-            <p className="text-xs text-gray-500 mt-0.5">{total} pair{total !== 1 ? 's' : ''} deployed</p>
-          )}
-        </div>
-        <button
-          onClick={() => setShowSearch(!showSearch)}
-          className={`px-3 py-1.5 rounded-lg text-sm transition-colors ${
-            showSearch ? 'bg-emerald-600/20 text-emerald-400' : 'bg-gray-800 hover:bg-gray-700 text-gray-300'
-          }`}
-        >
-          Search pair
-        </button>
-      </div>
-
-      {/* Pair search */}
-      {showSearch && (
-        <div className="rounded-xl bg-gray-900 border border-gray-800 p-4 mb-6 space-y-3">
-          <p className="text-xs text-gray-400">Find a specific pair by token addresses</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <input type="text" value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Token A address (0x...)"
-              className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-100 placeholder-gray-500 text-sm focus:border-emerald-500 focus:outline-none" />
-            <input type="text" value={searchB} onChange={e => setSearchB(e.target.value)}
-              placeholder="Token B address (0x...)"
-              className="px-3 py-2 rounded-lg bg-gray-800 border border-gray-700 text-gray-100 placeholder-gray-500 text-sm focus:border-emerald-500 focus:outline-none" />
+    <div className="space-y-5">
+      <section className="surface px-6 py-6 sm:px-8">
+        <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
+          <div className="max-w-3xl">
+            <p className="section-label">Live Book</p>
+            <h2 className="text-2xl font-semibold tracking-tight text-[var(--text-strong)] sm:text-[2rem]">
+              Monitor deployed pairs and expand only the books worth acting on.
+            </h2>
+            <p className="mt-3 text-sm leading-6 text-[var(--text-soft)]">
+              Search by token route when you know the contracts, or work through the currently deployed pairs and inspect fillable liquidity in place.
+            </p>
           </div>
-          {searchAddrA && searchAddrB && !searchPairExists && (
-            <p className="text-xs text-gray-500">No pair found for these tokens.</p>
-          )}
-          {searchPair && (
-            <div onClick={() => { setExpandedPair(searchPair); setShowSearch(false) }}
-              className="cursor-pointer">
-              <PairSection
-                pairAddress={searchPair}
-                isSelected={expandedPair === searchPair}
-                onSelect={() => setExpandedPair(expandedPair === searchPair ? null : searchPair)}
-              />
+
+          <div className="flex flex-wrap gap-2">
+            <span className="kpi-pill numeric">{total} deployed pair{total === 1 ? '' : 's'}</span>
+            <button
+              type="button"
+              onClick={() => setShowSearch(current => !current)}
+              className={showSearch ? 'secondary-button' : 'ghost-button'}
+            >
+              {showSearch ? 'Hide Pair Search' : 'Search Pair'}
+            </button>
+          </div>
+        </div>
+
+        {showSearch && (
+          <div className="mt-6 border-t border-[var(--border-soft)] pt-6">
+            <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div>
+                <label htmlFor="search-token-a" className="mb-2 block text-sm font-semibold text-[var(--text-strong)]">
+                  Token A Address
+                </label>
+                <input
+                  id="search-token-a"
+                  name="search_token_a"
+                  type="text"
+                  value={search}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="0x1234…"
+                  onChange={event => setSearch(event.target.value)}
+                  className="input-field"
+                />
+              </div>
+
+              <div>
+                <label htmlFor="search-token-b" className="mb-2 block text-sm font-semibold text-[var(--text-strong)]">
+                  Token B Address
+                </label>
+                <input
+                  id="search-token-b"
+                  name="search_token_b"
+                  type="text"
+                  value={searchB}
+                  autoComplete="off"
+                  spellCheck={false}
+                  placeholder="0x5678…"
+                  onChange={event => setSearchB(event.target.value)}
+                  className="input-field"
+                />
+              </div>
             </div>
-          )}
-        </div>
-      )}
 
-      {/* All pairs */}
-      {loadingPairs && (
-        <p className="text-gray-500 text-center py-8">Loading pairs...</p>
-      )}
+            <div className="mt-4" aria-live="polite">
+              {searchAddrA && searchAddrB && !searchPairExists && (
+                <p className="text-sm font-medium text-[var(--warning)]">
+                  No deployed pair matches these token addresses yet.
+                </p>
+              )}
+            </div>
 
-      {!loadingPairs && pairs.length === 0 && (
-        <div className="text-center py-12">
-          <p className="text-gray-400 mb-1">No pairs deployed yet.</p>
-          <p className="text-sm text-gray-500">Create an order to deploy the first pair.</p>
-        </div>
-      )}
+            {searchPair && (
+              <div className="mt-4">
+                <PairSection
+                  pairAddress={searchPair}
+                  isSelected={expandedPair === searchPair}
+                  onSelect={() => setExpandedPair(expandedPair === searchPair ? null : searchPair)}
+                />
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
-      <div className="space-y-3">
-        {pairs.map(addr => {
-          const pairAddr = addr as `0x${string}`
+      <section className="space-y-3">
+        {loadingPairs && (
+          <section className="surface px-6 py-8 text-center">
+            <p className="text-sm font-medium text-[var(--text-muted)]" aria-live="polite">Loading pairs…</p>
+          </section>
+        )}
+
+        {!loadingPairs && pairs.length === 0 && (
+          <section className="surface px-6 py-8 text-center">
+            <p className="text-base font-semibold text-[var(--text-strong)]">No pairs are deployed yet.</p>
+            <p className="mt-2 text-sm text-[var(--text-soft)]">
+              Create the first order to deploy a route and start building the book.
+            </p>
+          </section>
+        )}
+
+        {!loadingPairs && pairs.map(address => {
+          const pairAddress = address as `0x${string}`
           return (
             <PairSection
-              key={pairAddr}
-              pairAddress={pairAddr}
-              isSelected={expandedPair === pairAddr}
-              onSelect={() => setExpandedPair(expandedPair === pairAddr ? null : pairAddr)}
+              key={pairAddress}
+              pairAddress={pairAddress}
+              isSelected={expandedPair === pairAddress}
+              onSelect={() => setExpandedPair(expandedPair === pairAddress ? null : pairAddress)}
             />
           )
         })}
-      </div>
+      </section>
 
       {total > 100 && (
-        <p className="text-xs text-gray-500 text-center mt-4">
-          Showing first 100 pairs. Use search to find others.
+        <p className="px-2 text-sm text-[var(--text-muted)]">
+          Showing the first 100 deployed pairs. Use pair search to jump directly to another route.
         </p>
       )}
     </div>

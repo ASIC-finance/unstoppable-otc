@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import { formatUnits, parseUnits } from 'viem'
 import { TokenBadge } from './TokenBadge'
@@ -30,7 +30,12 @@ type Props = {
 }
 
 function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
-  order: Order; orderId: bigint; pairAddress: `0x${string}`; token0: `0x${string}`; token1: `0x${string}`; refetch?: () => void
+  order: Order
+  orderId: bigint
+  pairAddress: `0x${string}`
+  token0: `0x${string}`
+  token1: `0x${string}`
+  refetch?: () => void
 }) {
   const [fillAmount, setFillAmount] = useState('')
   const { address } = useAccount()
@@ -43,36 +48,41 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
   const { fillOrder, isPending, isSuccess, error, reset } = useFillOrder()
 
   const remaining = order.sellAmount - order.filledSellAmount
-
-  // Block interaction until decimals are resolved — prevents 18-decimal misparse
   const decimalsReady = sellDecimals != null && buyDecimals != null
   const sd = sellDecimals ?? 0
   const bd = buyDecimals ?? 0
 
   let buyAmountNeeded = 0n
   let fillAmountParsed = 0n
+
   if (decimalsReady) {
     try {
       fillAmountParsed = parseUnits(fillAmount || '0', sd)
       if (fillAmountParsed > 0n && order.sellAmount > 0n) {
-        // ceil div to match contract
-        const num = order.buyAmount * fillAmountParsed
-        buyAmountNeeded = num === 0n ? 0n : (num - 1n) / order.sellAmount + 1n
+        const numerator = order.buyAmount * fillAmountParsed
+        buyAmountNeeded = numerator === 0n ? 0n : (numerator - 1n) / order.sellAmount + 1n
       }
-    } catch { /* */ }
+    } catch {
+      fillAmountParsed = 0n
+    }
   }
 
   const { allowance, approve, isApproving, refetchAllowance, approvalConfirmed } = useTokenAllowance(
-    buyTokenAddr, address, pairAddress,
+    buyTokenAddr,
+    address,
+    pairAddress,
   )
 
   const needsApproval = buyAmountNeeded > 0n && allowance < buyAmountNeeded
 
-  // P2 fix: refetch allowance on confirmation, not a timer
-  useEffect(() => { if (approvalConfirmed) refetchAllowance() }, [approvalConfirmed, refetchAllowance])
+  useEffect(() => {
+    if (approvalConfirmed) {
+      refetchAllowance()
+    }
+  }, [approvalConfirmed, refetchAllowance])
 
-  // P3 fix: move side effects out of render into useEffect
   const [filled, setFilled] = useState(false)
+
   useEffect(() => {
     if (isSuccess && !filled) {
       setFilled(true)
@@ -82,106 +92,193 @@ function FillForm({ order, orderId, pairAddress, token0, token1, refetch }: {
 
   if (filled) {
     return (
-      <div className="flex items-center gap-2">
-        <span className="text-emerald-400 text-sm">Filled!</span>
-        <button onClick={() => { reset(); setFillAmount(''); setFilled(false) }} className="text-xs text-gray-400 hover:text-gray-200">New fill</button>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="status-pill bg-emerald-500/15 text-emerald-700">Filled</span>
+        <button
+          type="button"
+          onClick={() => {
+            reset()
+            setFillAmount('')
+            setFilled(false)
+          }}
+          className="ghost-button min-h-0 px-3 py-2 text-xs"
+        >
+          New Fill
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <input type="text" placeholder={decimalsReady ? `Max ${formatUnits(remaining, sd)}` : 'Loading...'} value={fillAmount}
+    <div className="flex flex-wrap items-center gap-2">
+      <label htmlFor={`fill-amount-${orderId}`} className="sr-only">
+        Fill amount for order {orderId.toString()}
+      </label>
+      <input
+        id={`fill-amount-${orderId}`}
+        name={`fill_amount_${orderId.toString()}`}
+        type="text"
+        value={fillAmount}
         disabled={!decimalsReady}
-        onChange={e => setFillAmount(e.target.value)}
-        className="w-28 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-sm text-gray-100 placeholder-gray-500" />
+        autoComplete="off"
+        inputMode="decimal"
+        spellCheck={false}
+        aria-label={`Fill amount for order ${orderId.toString()}`}
+        placeholder={decimalsReady ? `Max ${formatUnits(remaining, sd)}` : 'Loading…'}
+        onChange={event => setFillAmount(event.target.value)}
+        className="input-field min-h-0 w-[9rem] px-3 py-2 text-sm"
+      />
+
       {buyAmountNeeded > 0n && (
-        <span className="text-xs text-gray-400">Cost: {formatTokenAmount(buyAmountNeeded, bd)}</span>
+        <span className="text-xs font-medium text-[var(--text-soft)]">
+          Cost: <span className="numeric text-[var(--text-strong)]">{formatTokenAmount(buyAmountNeeded, bd)}</span>
+        </span>
       )}
+
       {needsApproval ? (
-        <button onClick={() => approve()} disabled={isApproving}
-          className="px-3 py-1 rounded text-sm bg-yellow-600 hover:bg-yellow-500 text-white disabled:opacity-50"
-        >{isApproving ? 'Approving...' : 'Approve'}</button>
+        <button
+          type="button"
+          onClick={() => approve()}
+          disabled={isApproving}
+          className="secondary-button min-h-0 px-3 py-2 text-sm"
+        >
+          {isApproving ? 'Approving…' : 'Approve'}
+        </button>
       ) : (
-        <button onClick={() => fillOrder(pairAddress, orderId, fillAmountParsed)}
+        <button
+          type="button"
+          onClick={() => fillOrder(pairAddress, orderId, fillAmountParsed)}
           disabled={!decimalsReady || isPending || fillAmountParsed <= 0n || fillAmountParsed > remaining}
-          className="px-3 py-1 rounded text-sm bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50"
-        >{isPending ? 'Filling...' : 'Fill'}</button>
+          className="primary-button min-h-0 px-3 py-2 text-sm"
+        >
+          {isPending ? 'Filling…' : 'Fill'}
+        </button>
       )}
-      {error && <span className="text-red-400 text-xs">Failed</span>}
+
+      {error && (
+        <span className="text-xs font-medium text-[var(--danger)]" aria-live="polite">
+          Transaction failed. Check your wallet and try again.
+        </span>
+      )}
     </div>
   )
 }
 
-export function OrderTable({ orders, orderIds, pairAddress, token0, token1, showFillAction, showCancelAction, onCancel, isCancelling, refetch }: Props) {
+export function OrderTable({
+  orders,
+  orderIds,
+  pairAddress,
+  token0,
+  token1,
+  showFillAction,
+  showCancelAction,
+  onCancel,
+  isCancelling,
+  refetch,
+}: Props) {
   const { address } = useAccount()
 
   if (orders.length === 0) {
-    return <p className="text-gray-500 text-center py-8">No orders found.</p>
+    return <p className="py-8 text-center text-sm text-[var(--text-muted)]">No orders found.</p>
   }
 
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full text-sm">
+    <div className="overflow-x-auto rounded-[1.5rem] border border-[var(--border-soft)] bg-white/72">
+      <table className="data-table">
+        <caption className="sr-only">Selected pair orders with maker, amount, fill progress, and actions.</caption>
         <thead>
-          <tr className="text-gray-400 text-left border-b border-gray-800">
-            <th className="py-3 px-2 font-medium">ID</th>
-            <th className="py-3 px-2 font-medium">Maker</th>
-            <th className="py-3 px-2 font-medium">Selling</th>
-            <th className="py-3 px-2 font-medium">Wanting</th>
-            <th className="py-3 px-2 font-medium">Sell Amt</th>
-            <th className="py-3 px-2 font-medium">Buy Amt</th>
-            <th className="py-3 px-2 font-medium">Filled</th>
-            <th className="py-3 px-2 font-medium">Status</th>
-            {(showFillAction || showCancelAction) && <th className="py-3 px-2 font-medium">Action</th>}
+          <tr>
+            <th scope="col">ID</th>
+            <th scope="col">Maker</th>
+            <th scope="col">Selling</th>
+            <th scope="col">Wanting</th>
+            <th scope="col">Sell Amount</th>
+            <th scope="col">Buy Amount</th>
+            <th scope="col">Filled</th>
+            <th scope="col">Status</th>
+            {(showFillAction || showCancelAction) && <th scope="col">Action</th>}
           </tr>
         </thead>
         <tbody>
-          {orders.map((order, i) => {
-            const oid = orderIds[i] ?? i
+          {orders.map((order, index) => {
+            const oid = orderIds[index] ?? index
             const orderId = BigInt(oid)
             const sellTokenAddr = order.sellToken0 ? token0 : token1
             const buyTokenAddr = order.sellToken0 ? token1 : token0
-            const statusLabel = ['Active', 'Filled', 'Cancelled'][order.status]
-            const statusColor = order.status === 0 ? 'text-emerald-400' : order.status === 1 ? 'text-blue-400' : 'text-gray-500'
-            const filled = filledPercent(order.sellAmount, order.filledSellAmount)
             const isOwnOrder = address && order.maker.toLowerCase() === address.toLowerCase()
+            const filled = filledPercent(order.sellAmount, order.filledSellAmount)
+
+            const status = [
+              {
+                label: 'Active',
+                className: 'bg-emerald-500/15 text-emerald-700',
+              },
+              {
+                label: 'Filled',
+                className: 'bg-sky-500/15 text-sky-700',
+              },
+              {
+                label: 'Cancelled',
+                className: 'bg-stone-400/20 text-stone-600',
+              },
+            ][order.status] ?? {
+              label: 'Unknown',
+              className: 'bg-stone-300/20 text-stone-600',
+            }
 
             return (
-              <tr key={oid} className="border-b border-gray-800/50 hover:bg-gray-900/50">
-                <td className="py-3 px-2 text-gray-400">#{oid}</td>
-                <td className="py-3 px-2">
-                  <span className="text-gray-300" title={order.maker}>
+              <tr key={oid}>
+                <td className="numeric text-[var(--text-soft)]">#{oid}</td>
+                <td>
+                  <span className="text-sm font-medium text-[var(--text-strong)]" title={order.maker}>
                     {shortenAddress(order.maker)}
-                    {isOwnOrder && <span className="ml-1 text-xs text-emerald-400">(you)</span>}
+                    {isOwnOrder && (
+                      <span className="ml-2 text-xs font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                        You
+                      </span>
+                    )}
                   </span>
                 </td>
-                <td className="py-3 px-2"><TokenBadge address={sellTokenAddr} /></td>
-                <td className="py-3 px-2"><TokenBadge address={buyTokenAddr} /></td>
-                <td className="py-3 px-2"><TokenAmount address={sellTokenAddr} amount={order.sellAmount} /></td>
-                <td className="py-3 px-2"><TokenAmount address={buyTokenAddr} amount={order.buyAmount} /></td>
-                <td className="py-3 px-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-16 h-1.5 rounded-full bg-gray-800 overflow-hidden">
-                      <div className="h-full bg-emerald-500 rounded-full" style={{ width: `${filled}%` }} />
+                <td><TokenBadge address={sellTokenAddr} /></td>
+                <td><TokenBadge address={buyTokenAddr} /></td>
+                <td><TokenAmount address={sellTokenAddr} amount={order.sellAmount} /></td>
+                <td><TokenAmount address={buyTokenAddr} amount={order.buyAmount} /></td>
+                <td>
+                  <div className="flex items-center gap-3">
+                    <div className="progress-track" aria-hidden="true">
+                      <div className="progress-fill" style={{ width: `${filled}%` }} />
                     </div>
-                    <span className="text-xs text-gray-400">{filled}%</span>
+                    <span className="numeric text-xs font-semibold text-[var(--text-soft)]">{filled}%</span>
                   </div>
                 </td>
-                <td className={`py-3 px-2 text-xs font-medium ${statusColor}`}>{statusLabel}</td>
+                <td>
+                  <span className={`status-pill ${status.className}`}>{status.label}</span>
+                </td>
                 {showFillAction && (
-                  <td className="py-3 px-2">
+                  <td>
                     {order.status === 0 && !isOwnOrder && (
-                      <FillForm order={order} orderId={orderId} pairAddress={pairAddress} token0={token0} token1={token1} refetch={refetch} />
+                      <FillForm
+                        order={order}
+                        orderId={orderId}
+                        pairAddress={pairAddress}
+                        token0={token0}
+                        token1={token1}
+                        refetch={refetch}
+                      />
                     )}
                   </td>
                 )}
                 {showCancelAction && (
-                  <td className="py-3 px-2">
+                  <td>
                     {order.status === 0 && isOwnOrder && onCancel && (
-                      <button onClick={() => onCancel(orderId)} disabled={isCancelling}
-                        className="px-3 py-1 rounded text-sm bg-red-600/20 hover:bg-red-600/40 text-red-400 disabled:opacity-50"
-                      >{isCancelling ? 'Cancelling...' : 'Cancel'}</button>
+                      <button
+                        type="button"
+                        onClick={() => onCancel(orderId)}
+                        disabled={isCancelling}
+                        className="secondary-button min-h-0 border-[rgba(181,83,81,0.22)] px-3 py-2 text-sm text-[var(--danger)]"
+                      >
+                        {isCancelling ? 'Cancelling…' : 'Cancel'}
+                      </button>
                     )}
                   </td>
                 )}
@@ -196,5 +293,10 @@ export function OrderTable({ orders, orderIds, pairAddress, token0, token1, show
 
 function TokenAmount({ address, amount }: { address: `0x${string}`; amount: bigint }) {
   const { decimals } = useTokenInfo(address)
-  return <span>{formatTokenAmount(amount, decimals ?? 18)}</span>
+
+  return (
+    <span className="numeric font-medium text-[var(--text-strong)]">
+      {formatTokenAmount(amount, decimals ?? 18)}
+    </span>
+  )
 }
