@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@variant dark (&:where(.dark, .dark *));
 
 :root {
   color-scheme: light;
@@ -23,6 +24,137 @@
   --danger: #b55351;
   --shadow-lg: 0 28px 80px rgba(33, 44, 39, 0.12);
   --shadow-md: 0 18px 36px rgba(33, 44, 39, 0.08);
+}
+
+:root.dark {
+  color-scheme: dark;
+  background: #0d1117;
+  color: #e6edf3;
+  --page-bg: #0d1117;
+  --surface: rgba(22, 27, 34, 0.86);
+  --surface-strong: rgba(30, 36, 44, 0.96);
+  --surface-dark: #e2ded6;
+  --surface-dark-2: #d4cfc5;
+  --border-soft: rgba(230, 237, 243, 0.10);
+  --border-strong: rgba(230, 237, 243, 0.16);
+  --text-strong: #e6edf3;
+  --text-soft: rgba(230, 237, 243, 0.74);
+  --text-muted: rgba(230, 237, 243, 0.50);
+  --text-inverse: rgba(13, 17, 23, 0.94);
+  --accent: #3fb68b;
+  --accent-strong: #2ea077;
+  --accent-soft: rgba(63, 182, 139, 0.14);
+  --warning: #d4a24a;
+  --danger: #e07472;
+  --shadow-lg: 0 28px 80px rgba(0, 0, 0, 0.36);
+  --shadow-md: 0 18px 36px rgba(0, 0, 0, 0.24);
+}
+
+/* ── Dark mode overrides for utility classes ───────────────── */
+
+:root.dark .surface-dark {
+  border-color: rgba(13, 17, 23, 0.12);
+  background:
+    radial-gradient(circle at top right, rgba(63, 182, 139, 0.10), transparent 28%),
+    linear-gradient(160deg, var(--surface-dark) 0%, var(--surface-dark-2) 100%);
+}
+
+:root.dark .surface-muted {
+  border-color: rgba(230, 237, 243, 0.06);
+  background: rgba(22, 27, 34, 0.50);
+}
+
+:root.dark .kpi-pill {
+  border-color: rgba(230, 237, 243, 0.06);
+  background: rgba(22, 27, 34, 0.70);
+}
+
+:root.dark .nav-link:hover {
+  background: rgba(22, 27, 34, 0.60);
+}
+
+:root.dark .nav-link[data-active="true"] {
+  background: rgba(30, 36, 44, 0.96);
+}
+
+:root.dark .secondary-button {
+  border-color: rgba(230, 237, 243, 0.10);
+  background: rgba(22, 27, 34, 0.70);
+}
+
+:root.dark .ghost-button:hover {
+  border-color: rgba(230, 237, 243, 0.14);
+  background: rgba(22, 27, 34, 0.50);
+}
+
+:root.dark .input-field {
+  border-color: rgba(230, 237, 243, 0.10);
+  background: rgba(22, 27, 34, 0.70);
+}
+
+:root.dark .input-field::placeholder {
+  color: rgba(230, 237, 243, 0.36);
+}
+
+:root.dark .input-field:focus-visible {
+  background: rgba(30, 36, 44, 0.96);
+}
+
+:root.dark .data-table td {
+  border-top-color: rgba(230, 237, 243, 0.06);
+}
+
+:root.dark .data-table tbody tr:hover {
+  background: rgba(22, 27, 34, 0.50);
+}
+
+:root.dark .progress-track {
+  background: rgba(230, 237, 243, 0.08);
+}
+
+:root.dark .wallet-button {
+  box-shadow: 0 20px 30px rgba(0, 0, 0, 0.24);
+}
+
+/* ── Theme transition ──────────────────────────────────────── */
+
+html.theme-transition,
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition: background-color 300ms ease, color 200ms ease, border-color 200ms ease, box-shadow 200ms ease !important;
+  transition-delay: 0s !important;
+}
+
+/* ── Warning button ────────────────────────────────────────── */
+
+.warning-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  min-height: 2.9rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 0.85rem 1.2rem;
+  font-size: 0.94rem;
+  font-weight: 700;
+  background: var(--warning);
+  color: white;
+  box-shadow: 0 16px 24px rgba(157, 106, 24, 0.18);
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.warning-button:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.warning-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+  box-shadow: none;
 }
 
 * {
@@ -57,6 +189,19 @@ body::before {
   background-size: 80px 80px;
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 70%);
   opacity: 0.45;
+}
+
+:root.dark body {
+  background:
+    radial-gradient(circle at top left, rgba(63, 182, 139, 0.10), transparent 28%),
+    radial-gradient(circle at 85% 12%, rgba(224, 116, 114, 0.05), transparent 18%),
+    linear-gradient(180deg, #0d1117 0%, #090c10 100%);
+}
+
+:root.dark body::before {
+  background-image:
+    linear-gradient(rgba(230, 237, 243, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(230, 237, 243, 0.03) 1px, transparent 1px);
 }
 
 body,
