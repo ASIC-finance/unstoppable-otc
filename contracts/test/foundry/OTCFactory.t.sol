@@ -10,8 +10,12 @@ contract OTCFactoryTest is OTCTestBase {
     // ── Create pair ────────────────────────────────────────────────
 
     function test_createPair_deploysAndEmits() public {
-        vm.expectEmit(false, false, false, false);
-        emit OTCFactory.PairCreated(address(0), address(0), address(0), 0);
+        (address t0, address t1) = address(tokenA) < address(tokenB)
+            ? (address(tokenA), address(tokenB))
+            : (address(tokenB), address(tokenA));
+
+        vm.expectEmit(true, true, false, false);
+        emit OTCFactory.PairCreated(t0, t1, address(0), 0);
         factory.createPair(address(tokenA), address(tokenB));
 
         address pairAddr = factory.getPair(address(tokenA), address(tokenB));
@@ -89,7 +93,7 @@ contract OTCFactoryTest is OTCTestBase {
 
     // ── Fuzz ───────────────────────────────────────────────────────
 
-    function testFuzz_createPair_deterministicAddress(
+    function testFuzz_createPair_alwaysSucceeds(
         string calldata nameA,
         string calldata nameB
     ) public {

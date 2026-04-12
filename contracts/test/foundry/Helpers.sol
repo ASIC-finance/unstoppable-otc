@@ -5,8 +5,6 @@ import {Test} from "forge-std/Test.sol";
 import {OTCFactory} from "../../contracts/OTCFactory.sol";
 import {OTCPair} from "../../contracts/OTCPair.sol";
 import {MockERC20} from "../../contracts/mocks/MockERC20.sol";
-import {MockFeeToken} from "../../contracts/mocks/MockFeeToken.sol";
-
 /// @dev Shared setup for all OTC tests
 abstract contract OTCTestBase is Test {
     OTCFactory internal factory;

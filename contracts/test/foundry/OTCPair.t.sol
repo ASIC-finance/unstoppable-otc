@@ -5,7 +5,7 @@ import {OTCTestBase} from "./Helpers.sol";
 import {OTCPair} from "../../contracts/OTCPair.sol";
 import {MockERC20} from "../../contracts/mocks/MockERC20.sol";
 import {MockFeeToken} from "../../contracts/mocks/MockFeeToken.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {MockReentrantToken} from "../../contracts/mocks/MockReentrantToken.sol";
 
 contract OTCPairTest is OTCTestBase {
     OTCPair internal pair;
@@ -310,6 +310,89 @@ contract OTCPairTest is OTCTestBase {
     }
 
     // ====================================================================
+    //                       VIEW FUNCTIONS
+    // ====================================================================
+
+    function test_getOrders_rangeQuery() public {
+        _makerCreateOrder(pair, sellToken0, 10e18, 20e18);
+        _makerCreateOrder(pair, sellToken0, 30e18, 40e18);
+        _makerCreateOrder(pair, sellToken0, 50e18, 60e18);
+
+        OTCPair.Order[] memory all = pair.getOrders(0, 3);
+        assertEq(all.length, 3);
+        assertEq(all[0].sellAmount, 10e18);
+        assertEq(all[1].sellAmount, 30e18);
+        assertEq(all[2].sellAmount, 50e18);
+
+        // Partial range
+        OTCPair.Order[] memory slice = pair.getOrders(1, 2);
+        assertEq(slice.length, 1);
+        assertEq(slice[0].sellAmount, 30e18);
+
+        // Beyond range clamps
+        OTCPair.Order[] memory clamped = pair.getOrders(0, 100);
+        assertEq(clamped.length, 3);
+
+        // Empty range
+        OTCPair.Order[] memory empty = pair.getOrders(5, 10);
+        assertEq(empty.length, 0);
+    }
+
+    function test_getMakerOrders_pagination() public {
+        _makerCreateOrder(pair, sellToken0, 10e18, 10e18);
+        _makerCreateOrder(pair, sellToken0, 20e18, 20e18);
+        _makerCreateOrder(pair, sellToken0, 30e18, 30e18);
+
+        // Page 1: offset=0, limit=2
+        (uint256[] memory ids1, OTCPair.Order[] memory orders1) = pair.getMakerOrders(maker, 0, 2);
+        assertEq(ids1.length, 2);
+        assertEq(orders1[0].sellAmount, 10e18);
+        assertEq(orders1[1].sellAmount, 20e18);
+
+        // Page 2: offset=2, limit=2
+        (uint256[] memory ids2, OTCPair.Order[] memory orders2) = pair.getMakerOrders(maker, 2, 2);
+        assertEq(ids2.length, 1);
+        assertEq(orders2[0].sellAmount, 30e18);
+    }
+
+    // ====================================================================
+    //                        REENTRANCY
+    // ====================================================================
+
+    function test_fillOrder_reentrancyGuardBlocksReentry() public {
+        MockReentrantToken reentrantToken = new MockReentrantToken();
+        reentrantToken.mint(taker, INITIAL_BALANCE);
+
+        // Create pair: tokenA / reentrantToken (reentrant token is the BUY token)
+        factory.createPair(address(tokenA), address(reentrantToken));
+        OTCPair reentrantPair = OTCPair(factory.getPair(address(tokenA), address(reentrantToken)));
+        bool tokenAIsSellToken0 = reentrantPair.token0() == address(tokenA);
+
+        // Maker creates order selling tokenA, wanting reentrantToken in return
+        vm.startPrank(maker);
+        tokenA.approve(address(reentrantPair), 100e18);
+        reentrantPair.createOrder(tokenAIsSellToken0, 100e18, 100e18);
+        vm.stopPrank();
+
+        // Arm the reentrant token: when taker transfers reentrantToken TO the pair
+        // during fillOrder, the token callback tries to re-enter fillOrder for another 50e18.
+        // The ReentrancyGuard reverts the inner call, but the mock swallows the failure,
+        // so the outer fill completes. We verify only one fill took effect.
+        bytes memory attackCalldata = abi.encodeCall(OTCPair.fillOrder, (0, 50e18));
+        reentrantToken.arm(address(reentrantPair), attackCalldata);
+
+        vm.startPrank(taker);
+        reentrantToken.approve(address(reentrantPair), 100e18);
+        reentrantPair.fillOrder(0, 50e18);
+        vm.stopPrank();
+
+        // Verify only the legitimate fill went through (50e18), not 100e18
+        OTCPair.Order memory order = reentrantPair.getOrder(0);
+        assertEq(order.filledSellAmount, 50e18, "only one fill should succeed");
+        assertTrue(order.status == OTCPair.OrderStatus.Active, "order should still be active");
+    }
+
+    // ====================================================================
     //                         FUZZ TESTS
     // ====================================================================
 
@@ -463,7 +546,6 @@ contract OTCPairTest is OTCTestBase {
     function test_invariant_balanceSolvency_afterOperations() public {
         // Create multiple orders, fill some, cancel some, verify balance invariant
         MockERC20 sellToken = sellToken0 ? tokenA : tokenB;
-        MockERC20 buyToken = sellToken0 ? tokenB : tokenA;
 
         // Create 3 orders
         _makerCreateOrder(pair, sellToken0, 100e18, 200e18);
