@@ -4,6 +4,7 @@ import { useAccount, useChainId } from 'wagmi'
 import { supportedChains } from '../config/chains'
 import { shortenAddress } from '../utils/format'
 import { useTheme, type ThemePreference } from '../hooks/useTheme'
+import { WrongChainBanner } from './WrongChainBanner'
 
 const themeModes: Record<ThemePreference, { next: ThemePreference; label: string; value: string }> = {
   light: { next: 'dark', label: 'Light theme', value: 'Light' },
@@ -82,6 +83,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             </button>
           </div>
         </header>
+
+        <WrongChainBanner />
 
         <main id="main-content" className="app-main">
           {children}

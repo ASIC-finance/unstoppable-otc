@@ -1,12 +1,11 @@
-import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
 import { OTCPairABI } from '../abi/OTCPair'
+import { useTx } from './useTx'
 
-export function useFillOrder() {
-  const { writeContract, data: txHash, isPending, error, reset } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash })
+export function useFillOrder(onSuccess?: () => void) {
+  const tx = useTx({ label: 'Fill order', onSuccess })
 
   function fillOrder(pairAddress: `0x${string}`, orderId: bigint, sellAmountOut: bigint) {
-    writeContract({
+    tx.writeContract({
       address: pairAddress,
       abi: OTCPairABI,
       functionName: 'fillOrder',
@@ -14,5 +13,13 @@ export function useFillOrder() {
     })
   }
 
-  return { fillOrder, isPending: isPending || isConfirming, isSuccess, error, reset, txHash }
+  return {
+    fillOrder,
+    isPending: tx.isBusy,
+    isSuccess: tx.isSuccess,
+    status: tx.status,
+    error: tx.error,
+    reset: tx.reset,
+    txHash: tx.txHash,
+  }
 }

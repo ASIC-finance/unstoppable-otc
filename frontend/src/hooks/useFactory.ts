@@ -1,6 +1,7 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useChainId } from 'wagmi'
+import { useReadContract, useChainId } from 'wagmi'
 import { getFactoryAddress } from '../config/chains'
 import { OTCFactoryABI } from '../abi/OTCFactory'
+import { useTx } from './useTx'
 
 export function usePairAddress(tokenA: `0x${string}` | undefined, tokenB: `0x${string}` | undefined) {
   const chainId = useChainId()
@@ -40,16 +41,14 @@ export function useAllPairs(offset: number, limit: number) {
   })
 }
 
-export function useCreatePair() {
+export function useCreatePair(onSuccess?: () => void) {
   const chainId = useChainId()
   const factory = getFactoryAddress(chainId)
-
-  const { writeContract, data: txHash, isPending, error, reset } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash: txHash })
+  const tx = useTx({ label: 'Create pair', onSuccess })
 
   function createPair(tokenA: `0x${string}`, tokenB: `0x${string}`) {
     if (!factory) return
-    writeContract({
+    tx.writeContract({
       address: factory,
       abi: OTCFactoryABI,
       functionName: 'createPair',
@@ -57,5 +56,13 @@ export function useCreatePair() {
     })
   }
 
-  return { createPair, isPending: isPending || isConfirming, isSuccess, error, reset, txHash }
+  return {
+    createPair,
+    isPending: tx.isBusy,
+    isSuccess: tx.isSuccess,
+    status: tx.status,
+    error: tx.error,
+    reset: tx.reset,
+    txHash: tx.txHash,
+  }
 }

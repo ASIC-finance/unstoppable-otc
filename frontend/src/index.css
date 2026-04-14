@@ -987,3 +987,218 @@ a:focus-visible {
     transform: translateY(0);
   }
 }
+
+/* ── Skeleton loading placeholder ─────────────────────────────── */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--surface-alt) 25%,
+    color-mix(in srgb, var(--surface-alt) 40%, var(--surface-strong)) 50%,
+    var(--surface-alt) 75%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s linear infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0% { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
+
+/* ── Copy button atom ─────────────────────────────────────────── */
+.copy-button {
+  display: inline-flex;
+  width: 1.35rem;
+  height: 1.35rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.copy-button:hover {
+  background: var(--surface-alt);
+  color: var(--text-strong);
+  border-color: var(--border-soft);
+}
+
+.copy-button[data-copied] {
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+}
+
+/* ── Wrong-chain banner ───────────────────────────────────────── */
+.chain-banner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, var(--border-soft));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--warning) 10%, var(--surface));
+  padding: 0.85rem 1rem;
+  color: var(--text-strong);
+}
+
+.chain-banner-body {
+  display: grid;
+  gap: 0.25rem;
+  max-width: 60rem;
+}
+
+.chain-banner-body strong {
+  color: var(--text-strong);
+  font-weight: 800;
+}
+
+.chain-banner-body p {
+  color: var(--text-soft);
+}
+
+.chain-banner-actions {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+/* ── Toast system ─────────────────────────────────────────────── */
+.toast-region {
+  position: fixed;
+  right: max(1rem, calc((100vw - 96rem) / 2));
+  bottom: 1rem;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+  width: min(22rem, calc(100vw - 2rem));
+  pointer-events: none;
+}
+
+.toast-card {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 0.6rem;
+  align-items: start;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--surface);
+  padding: 0.78rem 0.85rem;
+  box-shadow: var(--shadow-md);
+  pointer-events: auto;
+  animation: toast-in 180ms ease both;
+}
+
+.toast-icon {
+  display: inline-flex;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--surface-alt);
+  color: var(--text-soft);
+  font-size: 0.9rem;
+  font-weight: 900;
+}
+
+.toast-card[data-variant="success"] .toast-icon {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.toast-card[data-variant="error"] .toast-icon {
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+}
+
+.toast-card[data-variant="pending"] .toast-icon {
+  background: color-mix(in srgb, var(--info) 16%, transparent);
+  color: var(--info);
+  animation: toast-spin 1.2s linear infinite;
+}
+
+.toast-body {
+  display: grid;
+  min-width: 0;
+  gap: 0.15rem;
+  color: var(--text-soft);
+  font-size: 0.82rem;
+}
+
+.toast-body strong {
+  color: var(--text-strong);
+  font-weight: 800;
+}
+
+.toast-action {
+  margin-top: 0.2rem;
+  color: var(--accent-strong);
+  font-weight: 700;
+  text-decoration: none;
+  align-self: start;
+}
+
+.toast-action:hover {
+  text-decoration: underline;
+}
+
+.toast-dismiss {
+  align-self: start;
+  width: 1.4rem;
+  height: 1.4rem;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.toast-dismiss:hover {
+  background: var(--surface-alt);
+  color: var(--text-strong);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes toast-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-card { animation: none; }
+  .toast-card[data-variant="pending"] .toast-icon { animation: none; }
+}
+
+@media (max-width: 720px) {
+  .toast-region {
+    right: 0.5rem;
+    left: 0.5rem;
+    width: auto;
+    bottom: 0.5rem;
+  }
+}

@@ -1,4 +1,4 @@
-import { useReadContract } from 'wagmi'
+import { useReadContract, useReadContracts } from 'wagmi'
 import { OTCPairABI } from '../abi/OTCPair'
 
 // All pair queries take the pair address directly (no chain lookup needed)
@@ -47,21 +47,24 @@ export function useMakerOrders(
   })
 }
 
+/**
+ * Fetch token0 and token1 for a pair in a single multicall.
+ */
 export function usePairTokens(pairAddress: `0x${string}` | undefined) {
-  const { data: token0 } = useReadContract({
-    address: pairAddress,
-    abi: OTCPairABI,
-    functionName: 'token0',
+  const { data, isLoading } = useReadContracts({
+    allowFailure: true,
+    contracts: pairAddress
+      ? [
+          { address: pairAddress, abi: OTCPairABI, functionName: 'token0' },
+          { address: pairAddress, abi: OTCPairABI, functionName: 'token1' },
+        ]
+      : [],
     query: { enabled: !!pairAddress },
   })
-  const { data: token1 } = useReadContract({
-    address: pairAddress,
-    abi: OTCPairABI,
-    functionName: 'token1',
-    query: { enabled: !!pairAddress },
-  })
+
   return {
-    token0: token0 as `0x${string}` | undefined,
-    token1: token1 as `0x${string}` | undefined,
+    token0: data?.[0]?.status === 'success' ? (data[0].result as `0x${string}`) : undefined,
+    token1: data?.[1]?.status === 'success' ? (data[1].result as `0x${string}`) : undefined,
+    isLoading,
   }
 }

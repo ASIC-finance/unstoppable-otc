@@ -1,10 +1,14 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi'
+import { useReadContract } from 'wagmi'
 import { erc20Abi, maxUint256 } from 'viem'
+import { useTx } from './useTx'
+
+export type ApprovalMode = 'exact' | 'max'
 
 export function useTokenAllowance(
   tokenAddress: `0x${string}` | undefined,
   owner: `0x${string}` | undefined,
   spender: `0x${string}` | undefined,
+  symbol?: string,
 ) {
   const enabled = !!tokenAddress && !!owner && !!spender
 
@@ -16,19 +20,15 @@ export function useTokenAllowance(
     query: { enabled },
   })
 
-  const { writeContract, data: txHash, isPending: isApproving, reset } = useWriteContract()
+  const tx = useTx({ label: symbol ? `Approve ${symbol}` : 'Approve', onSuccess: () => refetch() })
 
-  const { isLoading: isWaitingApproval, isSuccess: approvalConfirmed } = useWaitForTransactionReceipt({
-    hash: txHash,
-  })
-
-  function approve() {
+  function approve(amount?: bigint) {
     if (!tokenAddress || !spender) return
-    writeContract({
+    tx.writeContract({
       address: tokenAddress,
       abi: erc20Abi,
       functionName: 'approve',
-      args: [spender, maxUint256],
+      args: [spender, amount ?? maxUint256],
     })
   }
 
@@ -36,8 +36,9 @@ export function useTokenAllowance(
     allowance: allowance ?? 0n,
     approve,
     refetchAllowance: refetch,
-    isApproving: isApproving || isWaitingApproval,
-    approvalConfirmed,
-    resetApproval: reset,
+    isApproving: tx.isBusy,
+    approvalConfirmed: tx.isSuccess,
+    approvalStatus: tx.status,
+    resetApproval: tx.reset,
   }
 }

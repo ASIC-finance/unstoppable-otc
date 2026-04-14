@@ -1,5 +1,6 @@
 import { defineChain } from '@reown/appkit/networks'
 import type { AppKitNetwork } from '@reown/appkit/networks'
+import { ZERO_ADDRESS } from '../utils/address'
 
 export const pulsechain = defineChain({
   id: 369,
@@ -47,11 +48,19 @@ export const supportedChains: ChainConfig[] = [
 
 export const networks = supportedChains.map(c => c.network) as [AppKitNetwork, ...AppKitNetwork[]]
 
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-
 export function getFactoryAddress(chainId: number | undefined): `0x${string}` | undefined {
   if (!chainId) return undefined
   const addr = supportedChains.find(c => c.network.id === chainId)?.factoryAddress
   if (!addr || addr === ZERO_ADDRESS) return undefined
   return addr
+}
+
+export function isChainSupported(chainId: number | undefined): boolean {
+  if (!chainId) return false
+  return supportedChains.some(c => c.network.id === chainId)
+}
+
+export function getSupportedChain(chainId: number | undefined) {
+  if (!chainId) return undefined
+  return supportedChains.find(c => c.network.id === chainId)
 }

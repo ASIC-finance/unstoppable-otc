@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useAccount } from 'wagmi'
 import { useMakerOrderCount, useMakerOrders, usePairTokens } from '../hooks/useOrders'
 import { useAllPairsLength, useAllPairs } from '../hooks/useFactory'
@@ -9,7 +9,11 @@ import { shortenAddress } from '../utils/format'
 
 const PAGE_SIZE = 50
 
-function MyPairOrders({ pairAddress, isExpanded, onToggle }: {
+function MyPairOrders({
+  pairAddress,
+  isExpanded,
+  onToggle,
+}: {
   pairAddress: `0x${string}`
   isExpanded: boolean
   onToggle: () => void
@@ -18,33 +22,26 @@ function MyPairOrders({ pairAddress, isExpanded, onToggle }: {
   const { token0, token1 } = usePairTokens(pairAddress)
   const { data: makerCount, refetch: refetchCount } = useMakerOrderCount(pairAddress, address)
   const count = Number(makerCount ?? 0n)
+
   const { data, isLoading, refetch: refetchOrders } = useMakerOrders(
     isExpanded ? pairAddress : undefined,
     address,
     0,
     PAGE_SIZE,
   )
-  const { cancelOrder, isPending: isCancelling, isSuccess, reset } = useCancelOrder()
 
   const refetch = () => {
     refetchOrders()
     refetchCount()
   }
 
-  useEffect(() => {
-    if (isSuccess) {
-      reset()
-      refetch()
-    }
-  }, [isSuccess]) // eslint-disable-line react-hooks/exhaustive-deps
+  const { cancelOrder, isPending: isCancelling } = useCancelOrder(refetch)
 
   const orderIds = data ? [...data[0]] : []
   const orders = data ? [...data[1]] : []
   const panelId = `my-pair-${pairAddress.toLowerCase()}`
 
-  if (count === 0) {
-    return null
-  }
+  if (count === 0) return null
 
   return (
     <section className="pair-row" data-selected={isExpanded}>
@@ -52,7 +49,7 @@ function MyPairOrders({ pairAddress, isExpanded, onToggle }: {
         type="button"
         onClick={onToggle}
         aria-expanded={isExpanded}
-        aria-controls={panelId}
+        aria-controls={isExpanded ? panelId : undefined}
         className="pair-row-button"
       >
         <div className="pair-main">
@@ -75,33 +72,30 @@ function MyPairOrders({ pairAddress, isExpanded, onToggle }: {
           <span className="text-sm font-semibold text-[var(--text-soft)]">
             {isExpanded ? 'Managing' : 'Open'}
           </span>
-          <span className="chevron" aria-hidden="true">
-            {'\u25BE'}
-          </span>
+          <span className="chevron" aria-hidden="true">{'\u25BE'}</span>
         </div>
       </button>
 
       {isExpanded && (
         <div id={panelId} className="pair-panel">
-          {isLoading && (
-            <p className="loading-state text-sm" aria-live="polite">
-              <strong>Loading Your Orders…</strong>
-              Reading maker inventory for this pair.
-            </p>
-          )}
-
-          {!isLoading && orders.length > 0 && token0 && token1 && (
+          {token0 && token1 ? (
             <OrderTable
               orders={orders}
               orderIds={orderIds.map(Number)}
               pairAddress={pairAddress}
               token0={token0}
               token1={token1}
+              isLoading={isLoading}
               showCancelAction
               onCancel={(orderId) => cancelOrder(pairAddress, orderId)}
               isCancelling={isCancelling}
               refetch={refetch}
             />
+          ) : (
+            <p className="loading-state text-sm" aria-live="polite">
+              <strong>Loading Tokens…</strong>
+              Reading pair metadata.
+            </p>
           )}
         </div>
       )}
@@ -123,12 +117,8 @@ export function MyOrders() {
       <section className="workspace-header">
         <div>
           <p className="eyebrow">Wallet Required</p>
-          <h1 className="workspace-title">
-            Connect a wallet to inspect and cancel maker orders.
-          </h1>
-          <p className="workspace-copy">
-            Pair-level inventory appears after wallet connection.
-          </p>
+          <h1 className="workspace-title">Connect a wallet to inspect and cancel maker orders.</h1>
+          <p className="workspace-copy">Pair-level inventory appears after wallet connection.</p>
         </div>
         <div className="workspace-meta">
           <span className="kpi-pill">Maker-only view</span>
@@ -142,9 +132,7 @@ export function MyOrders() {
       <section className="workspace-header">
         <div>
           <p className="eyebrow">Maker Control</p>
-          <h1 className="workspace-title">
-            Pair exposure and cancelable live orders.
-          </h1>
+          <h1 className="workspace-title">Pair exposure and cancelable live orders.</h1>
           <p className="workspace-copy">
             Expand a route to review remaining size, fill progress, and cancellation actions.
           </p>
@@ -173,7 +161,7 @@ export function MyOrders() {
           </section>
         )}
 
-        {!isLoading && pairs.map(address => {
+        {!isLoading && pairs.map((address) => {
           const pairAddress = address as `0x${string}`
           return (
             <MyPairOrders
