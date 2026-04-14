@@ -1202,3 +1202,216 @@ a:focus-visible {
     bottom: 0.5rem;
   }
 }
+
+/* ── Token picker ─────────────────────────────────────────────── */
+.picker-root {
+  position: relative;
+  width: 100%;
+}
+
+.picker-button {
+  display: flex;
+  width: 100%;
+  min-height: 2.75rem;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 8px;
+  background: var(--surface-strong);
+  padding: 0.58rem 0.75rem;
+  color: var(--text-strong);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.picker-button:hover {
+  border-color: var(--border-strong);
+  background: var(--surface);
+}
+
+.picker-button[aria-expanded="true"] {
+  border-color: color-mix(in srgb, var(--accent) 65%, var(--border-strong));
+  background: var(--surface);
+}
+
+.picker-selected {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.5rem;
+  overflow: hidden;
+}
+
+.picker-avatar {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.picker-avatar-fallback {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-inverse);
+  color: var(--text-inverse);
+  font-size: 0.64rem;
+  font-weight: 820;
+}
+
+.picker-symbol {
+  font-weight: 800;
+  color: var(--text-strong);
+}
+
+.picker-name {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-placeholder {
+  color: var(--text-muted);
+}
+
+.picker-panel {
+  position: absolute;
+  z-index: 25;
+  left: 0;
+  right: 0;
+  top: calc(100% + 0.35rem);
+  display: grid;
+  gap: 0.6rem;
+  max-height: 24rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  padding: 0.7rem;
+  animation: picker-in 120ms ease both;
+}
+
+@keyframes picker-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .picker-panel { animation: none; }
+}
+
+.picker-search {
+  margin: 0;
+}
+
+.picker-pinned {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.picker-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 1.9rem;
+  border: 1px solid var(--border-soft);
+  border-radius: 999px;
+  background: var(--surface-strong);
+  padding: 0.25rem 0.55rem;
+  color: var(--text-strong);
+  font-size: 0.78rem;
+  font-weight: 760;
+  cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease;
+}
+
+.picker-chip:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border-strong));
+}
+
+.picker-chip:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.picker-chip img {
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 999px;
+}
+
+.picker-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 18rem;
+  overflow-y: auto;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--border-soft);
+  padding-top: 0.35rem;
+}
+
+.picker-empty {
+  padding: 1.25rem 0.75rem;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.picker-option {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+  border-radius: 6px;
+  padding: 0.45rem 0.55rem;
+  color: var(--text-strong);
+  cursor: pointer;
+  transition: background-color 100ms ease;
+}
+
+.picker-option[data-highlighted] {
+  background: var(--accent-soft);
+}
+
+.picker-option[aria-selected="true"] {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  outline: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border-strong));
+}
+
+.picker-option .picker-avatar {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.picker-option-body {
+  display: grid;
+  min-width: 0;
+  gap: 0.12rem;
+}
+
+.picker-option-symbol {
+  font-weight: 800;
+  color: var(--text-strong);
+}
+
+.picker-option-name {
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.picker-option-address {
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}

@@ -6,6 +6,7 @@ import { useActiveOrderCount, useActiveOrders, usePairTokens } from '../hooks/us
 import { useAllPairsLength, useAllPairs, usePairAddress } from '../hooks/useFactory'
 import { OrderTable } from '../components/OrderTable'
 import { TokenBadge } from '../components/TokenBadge'
+import { TokenPicker } from '../components/TokenPicker'
 import { shortenAddress } from '../utils/format'
 
 const ORDERS_PER_PAIR = 20
@@ -174,36 +175,24 @@ export function OrderBook() {
 
         <div className="search-desk">
           <div className="field-stack">
-            <label htmlFor="search-token-a" className="field-label">
-              Token A Address
-            </label>
-            <input
+            <label htmlFor="search-token-a" className="field-label">Token A</label>
+            <TokenPicker
               id="search-token-a"
-              name="search_token_a"
-              type="text"
+              label="Token A"
               value={search}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="0x1234…"
-              onChange={event => setSearch(event.target.value)}
-              className="input-field"
+              onChange={setSearch}
+              excludeAddress={searchB || undefined}
             />
           </div>
 
           <div className="field-stack">
-            <label htmlFor="search-token-b" className="field-label">
-              Token B Address
-            </label>
-            <input
+            <label htmlFor="search-token-b" className="field-label">Token B</label>
+            <TokenPicker
               id="search-token-b"
-              name="search_token_b"
-              type="text"
+              label="Token B"
               value={searchB}
-              autoComplete="off"
-              spellCheck={false}
-              placeholder="0x5678…"
-              onChange={event => setSearchB(event.target.value)}
-              className="input-field"
+              onChange={setSearchB}
+              excludeAddress={search || undefined}
             />
           </div>
         </div>

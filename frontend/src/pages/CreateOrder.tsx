@@ -14,6 +14,7 @@ import { TokenCard } from '../components/create-order/TokenCard'
 import { Steps } from '../components/create-order/Steps'
 import { OrderSummary } from '../components/create-order/OrderSummary'
 import { CreateOrderSuccess } from '../components/create-order/CreateOrderSuccess'
+import { TokenPicker } from '../components/TokenPicker'
 
 /** 6 decimals of precision is plenty for a preview rate — avoids Number() overflow. */
 function computeRate(buyAmount: bigint, sellAmount: bigint, buyDecimals: number): string {
@@ -162,26 +163,19 @@ export function CreateOrder() {
         {step === 0 && (
           <div className="ticket-body">
             <div className="field-stack">
-              <label htmlFor="sell-token" className="field-label">Sell Token Address</label>
-              <input
+              <label htmlFor="sell-token" className="field-label">Sell Token</label>
+              <TokenPicker
                 id="sell-token"
-                name="sell_token"
-                type="text"
+                label="Sell Token"
                 value={sellToken}
-                onChange={e => setSellToken(e.target.value)}
-                placeholder="Paste token address, 0x\u2026"
-                autoComplete="off"
-                spellCheck={false}
-                className="input-field"
+                onChange={setSellToken}
+                excludeAddress={buyToken || undefined}
+                placeholder="Search by symbol, name, or paste 0x\u2026"
               />
             </div>
 
             {sellAddr && sellInfo.symbol && sellDecimals != null && (
               <TokenCard address={sellAddr} balance={sellBalance} decimals={sellDecimals} label="Sell Token" />
-            )}
-
-            {sellToken && !sellAddr && (
-              <p className="text-sm font-medium text-[var(--danger)]">Enter a valid token address.</p>
             )}
 
             <button type="button" onClick={() => setStep(1)} disabled={!step0Valid} className="primary-button w-full">
@@ -258,26 +252,19 @@ export function CreateOrder() {
             </div>
 
             <div className="field-stack">
-              <label htmlFor="buy-token" className="field-label">Buy Token Address</label>
-              <input
+              <label htmlFor="buy-token" className="field-label">Buy Token</label>
+              <TokenPicker
                 id="buy-token"
-                name="buy_token"
-                type="text"
+                label="Buy Token"
                 value={buyToken}
-                onChange={e => setBuyToken(e.target.value)}
-                placeholder="Paste token address, 0x\u2026"
-                autoComplete="off"
-                spellCheck={false}
-                className="input-field"
+                onChange={setBuyToken}
+                excludeAddress={sellToken || undefined}
+                placeholder="Search by symbol, name, or paste 0x\u2026"
               />
             </div>
 
             {buyAddr && buyInfo.symbol && buyDecimals != null && (
               <TokenCard address={buyAddr} decimals={buyDecimals} label="Buy Token" />
-            )}
-
-            {sellToken && buyToken && isSameAddress(sellToken, buyToken) && (
-              <p className="text-sm font-medium text-[var(--danger)]">Cannot be the same as the sell token.</p>
             )}
 
             <div className="ticket-actions">
