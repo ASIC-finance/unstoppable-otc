@@ -300,7 +300,7 @@ describe("OTCFactory + OTCPair", function () {
 
       const bal = await tokenA.balanceOf(maker.address);
       await expect(pair.connect(maker).cancelOrder(0))
-        .to.emit(pair, "OrderCancelled").withArgs(0);
+        .to.emit(pair, "OrderCancelled").withArgs(0, maker.address);
       expect(await tokenA.balanceOf(maker.address)).to.equal(bal + sellAmount);
     });
 
@@ -438,6 +438,68 @@ describe("OTCFactory + OTCPair", function () {
       await pair1.connect(maker).cancelOrder(0);
       expect(await tokenA.balanceOf(pair2.target)).to.equal(ethers.parseEther("200"));
       expect(await pair2.getActiveOrderCount()).to.equal(1);
+    });
+  });
+
+  describe("cancelOrderTo", () => {
+    it("sends refund to specified recipient", async () => {
+      const { pair, tokenA, tokenB, sellToken0, maker } = await loadFixture(deployWithPairFixture);
+      const sellAmt = ethers.parseEther("100");
+      const [, , , recipient] = await ethers.getSigners();
+
+      // sellToken0 flag always makes tokenA the sell token in this fixture
+      await tokenA.connect(maker).approve(pair.target, sellAmt);
+      await pair.connect(maker).createOrder(sellToken0, sellAmt, sellAmt);
+
+      const before = await tokenA.balanceOf(recipient.address);
+      // Event should emit recipient, not maker
+      await expect(pair.connect(maker).cancelOrderTo(0, recipient.address))
+        .to.emit(pair, "OrderCancelled").withArgs(0, recipient.address);
+      const after = await tokenA.balanceOf(recipient.address);
+
+      expect(after - before).to.equal(sellAmt);
+
+      const order = await pair.getOrder(0);
+      expect(order.status).to.equal(2); // Cancelled
+    });
+
+    it("sends partial refund to recipient", async () => {
+      const { pair, tokenA, tokenB, sellToken0, maker, taker } = await loadFixture(deployWithPairFixture);
+      const sellAmt = ethers.parseEther("100");
+      const [, , , recipient] = await ethers.getSigners();
+
+      await tokenA.connect(maker).approve(pair.target, sellAmt);
+      await pair.connect(maker).createOrder(sellToken0, sellAmt, sellAmt);
+
+      // Fill 60% — taker pays with tokenB (the buy token)
+      await tokenB.connect(taker).approve(pair.target, ethers.parseEther("60"));
+      await pair.connect(taker).fillOrder(0, ethers.parseEther("60"));
+
+      const before = await tokenA.balanceOf(recipient.address);
+      await pair.connect(maker).cancelOrderTo(0, recipient.address);
+      expect(await tokenA.balanceOf(recipient.address) - before).to.equal(ethers.parseEther("40"));
+    });
+
+    it("reverts on zero address", async () => {
+      const { pair, tokenA, sellToken0, maker } = await loadFixture(deployWithPairFixture);
+
+      await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(sellToken0, ethers.parseEther("100"), ethers.parseEther("100"));
+
+      await expect(
+        pair.connect(maker).cancelOrderTo(0, ethers.ZeroAddress)
+      ).to.be.revertedWithCustomError(pair, "ZeroAddress");
+    });
+
+    it("reverts if not maker", async () => {
+      const { pair, tokenA, sellToken0, maker, taker } = await loadFixture(deployWithPairFixture);
+
+      await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(sellToken0, ethers.parseEther("100"), ethers.parseEther("100"));
+
+      await expect(
+        pair.connect(taker).cancelOrderTo(0, taker.address)
+      ).to.be.revertedWithCustomError(pair, "NotMaker");
     });
   });
 });

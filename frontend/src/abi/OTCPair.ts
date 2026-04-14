@@ -8,15 +8,18 @@ export const OTCPairABI = [
     type: "constructor",
   },
   { inputs: [], name: "ExceedsRemaining", type: "error" },
+  { inputs: [], name: "InvalidActiveIndex", type: "error" },
   { inputs: [], name: "NotMaker", type: "error" },
   { inputs: [], name: "OrderNotActive", type: "error" },
   { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
+  { inputs: [], name: "ZeroAddress", type: "error" },
   { inputs: [], name: "ZeroAmount", type: "error" },
   { inputs: [], name: "ZeroCost", type: "error" },
   {
     anonymous: false,
     inputs: [
       { indexed: true, name: "orderId", type: "uint256" },
+      { indexed: true, name: "recipient", type: "address" },
     ],
     name: "OrderCancelled",
     type: "event",
@@ -47,6 +50,16 @@ export const OTCPairABI = [
   {
     inputs: [{ name: "orderId", type: "uint256" }],
     name: "cancelOrder",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "orderId", type: "uint256" },
+      { name: "recipient", type: "address" },
+    ],
+    name: "cancelOrderTo",
     outputs: [],
     stateMutability: "nonpayable",
     type: "function",

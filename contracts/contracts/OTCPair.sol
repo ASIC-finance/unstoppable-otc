@@ -4,6 +4,7 @@ pragma solidity ^0.8.28;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /// @title OTCPair - Isolated order book for a single token pair
 /// @notice Each pair is deployed by OTCFactory and holds only two tokens.
@@ -51,13 +52,15 @@ contract OTCPair is ReentrancyGuard {
         uint256 buyAmountDelivered // actual amount delivered to maker (after any token fees)
     );
 
-    event OrderCancelled(uint256 indexed orderId);
+    event OrderCancelled(uint256 indexed orderId, address indexed recipient);
 
     error ZeroAmount();
+    error ZeroAddress();
     error OrderNotActive();
     error NotMaker();
     error ExceedsRemaining();
     error ZeroCost();
+    error InvalidActiveIndex();
 
     constructor(address _token0, address _token1) {
         factory = msg.sender;
@@ -75,13 +78,9 @@ contract OTCPair is ReentrancyGuard {
         return IERC20(sellToken0_ ? token1 : token0);
     }
 
-    function _ceilDiv(uint256 a, uint256 b) private pure returns (uint256) {
-        return a == 0 ? 0 : (a - 1) / b + 1;
-    }
-
     function _removeFromActive(uint256 orderId) private {
         uint256 idx = _activeIndex[orderId];
-        assert(_activeOrderIds[idx] == orderId);
+        if (_activeOrderIds[idx] != orderId) revert InvalidActiveIndex();
         uint256 lastId = _activeOrderIds[_activeOrderIds.length - 1];
         _activeOrderIds[idx] = lastId;
         _activeIndex[lastId] = idx;
@@ -139,8 +138,8 @@ contract OTCPair is ReentrancyGuard {
         uint256 remaining = order.sellAmount - order.filledSellAmount;
         if (sellAmountOut > remaining) revert ExceedsRemaining();
 
-        // Round UP to protect maker's price
-        uint256 buyAmountIn = _ceilDiv(order.buyAmount * sellAmountOut, order.sellAmount);
+        // Round UP to protect maker's price (overflow-safe via 512-bit intermediate)
+        uint256 buyAmountIn = Math.mulDiv(order.buyAmount, sellAmountOut, order.sellAmount, Math.Rounding.Ceil);
         if (buyAmountIn == 0) revert ZeroCost();
 
         // Effects before interactions
@@ -165,8 +164,19 @@ contract OTCPair is ReentrancyGuard {
         emit OrderFilled(orderId, msg.sender, sellAmountOut, actualBuyReceived);
     }
 
-    /// @notice Cancel an active order and refund remaining tokens
+    /// @notice Cancel an active order and refund remaining tokens to the maker
     function cancelOrder(uint256 orderId) external nonReentrant {
+        _cancelTo(orderId, address(0));
+    }
+
+    /// @notice Cancel an active order and send remaining tokens to `recipient`
+    /// @dev Allows maker to rescue funds when their address is blocklisted by the sell token
+    function cancelOrderTo(uint256 orderId, address recipient) external nonReentrant {
+        if (recipient == address(0)) revert ZeroAddress();
+        _cancelTo(orderId, recipient);
+    }
+
+    function _cancelTo(uint256 orderId, address recipient) private {
         Order storage order = orders[orderId];
 
         if (order.status != OrderStatus.Active) revert OrderNotActive();
@@ -175,12 +185,13 @@ contract OTCPair is ReentrancyGuard {
         order.status = OrderStatus.Cancelled;
         _removeFromActive(orderId);
 
+        address to = recipient == address(0) ? order.maker : recipient;
         uint256 refund = order.sellAmount - order.filledSellAmount;
         if (refund > 0) {
-            _sellToken(order.sellToken0).safeTransfer(order.maker, refund);
+            _sellToken(order.sellToken0).safeTransfer(to, refund);
         }
 
-        emit OrderCancelled(orderId);
+        emit OrderCancelled(orderId, to);
     }
 
     // ── Views ───────────────────────────────────────────────────────

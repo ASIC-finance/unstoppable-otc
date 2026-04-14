@@ -617,4 +617,147 @@ contract OTCPairTest is OTCTestBase {
         OTCPair.Order memory order = pair.getOrder(0);
         assertTrue(order.filledSellAmount <= order.sellAmount, "filled must never exceed sell");
     }
+
+    // ====================================================================
+    //                     CANCEL ORDER TO (M-1 fix)
+    // ====================================================================
+
+    function test_cancelOrderTo_sendsToRecipient() public {
+        uint256 sellAmt = 100e18;
+        _makerCreateOrder(pair, sellToken0, sellAmt, sellAmt);
+
+        MockERC20 sellToken = sellToken0 ? tokenA : tokenB;
+        address recipient = makeAddr("recipient");
+        uint256 recipientBefore = sellToken.balanceOf(recipient);
+
+        // Event should emit recipient, not maker
+        vm.expectEmit(true, true, false, false);
+        emit OTCPair.OrderCancelled(0, recipient);
+
+        vm.prank(maker);
+        pair.cancelOrderTo(0, recipient);
+
+        assertEq(sellToken.balanceOf(recipient), recipientBefore + sellAmt);
+        OTCPair.Order memory order = pair.getOrder(0);
+        assertTrue(order.status == OTCPair.OrderStatus.Cancelled);
+    }
+
+    function test_cancelOrder_emitsMakerAsRecipient() public {
+        _makerCreateOrder(pair, sellToken0, 100e18, 100e18);
+
+        // Default cancelOrder should emit maker as recipient
+        vm.expectEmit(true, true, false, false);
+        emit OTCPair.OrderCancelled(0, maker);
+
+        vm.prank(maker);
+        pair.cancelOrder(0);
+    }
+
+    function test_cancelOrderTo_partiallyFilled() public {
+        uint256 sellAmt = 100e18;
+        _makerCreateOrder(pair, sellToken0, sellAmt, sellAmt);
+
+        _takerFillOrder(pair, sellToken0, 0, 60e18, 60e18);
+
+        address recipient = makeAddr("recipient");
+        MockERC20 sellToken = sellToken0 ? tokenA : tokenB;
+        uint256 recipientBefore = sellToken.balanceOf(recipient);
+
+        vm.prank(maker);
+        pair.cancelOrderTo(0, recipient);
+
+        assertEq(sellToken.balanceOf(recipient), recipientBefore + 40e18);
+    }
+
+    function test_cancelOrderTo_revertsZeroAddress() public {
+        _makerCreateOrder(pair, sellToken0, 100e18, 100e18);
+
+        vm.expectRevert(OTCPair.ZeroAddress.selector);
+        vm.prank(maker);
+        pair.cancelOrderTo(0, address(0));
+    }
+
+    function test_cancelOrderTo_revertsNotMaker() public {
+        _makerCreateOrder(pair, sellToken0, 100e18, 100e18);
+
+        vm.expectRevert(OTCPair.NotMaker.selector);
+        vm.prank(taker);
+        pair.cancelOrderTo(0, taker);
+    }
+
+    function test_cancelOrder_stillWorksAsDefault() public {
+        uint256 sellAmt = 100e18;
+        _makerCreateOrder(pair, sellToken0, sellAmt, sellAmt);
+
+        MockERC20 sellToken = sellToken0 ? tokenA : tokenB;
+        uint256 makerBefore = sellToken.balanceOf(maker);
+
+        vm.prank(maker);
+        pair.cancelOrder(0);
+
+        // Original cancelOrder still sends to maker
+        assertEq(sellToken.balanceOf(maker), makerBefore + sellAmt);
+    }
+
+    // ====================================================================
+    //                  OVERFLOW-SAFE MULDIV (M-2 fix)
+    // ====================================================================
+
+    function test_fillOrder_overflowSafe_largeBuyAndSellAmounts() public {
+        // Values whose product exceeds uint256: ~1.15e77
+        // 1e38 * 1e38 = 1e76 (fits), but 1e39 * 1e39 = 1e78 (overflows)
+        // With Math.mulDiv, this should work. Without it, it reverts.
+        uint256 sellAmt = 1e39;
+        uint256 buyAmt = 1e39;
+
+        MockERC20 sellToken = sellToken0 ? tokenA : tokenB;
+        MockERC20 buyToken = sellToken0 ? tokenB : tokenA;
+        sellToken.mint(maker, sellAmt);
+        buyToken.mint(taker, buyAmt);
+
+        vm.startPrank(maker);
+        sellToken.approve(address(pair), sellAmt);
+        pair.createOrder(sellToken0, sellAmt, buyAmt);
+        vm.stopPrank();
+
+        // Fill the full amount — with old code this would overflow
+        vm.startPrank(taker);
+        buyToken.approve(address(pair), buyAmt);
+        pair.fillOrder(0, sellAmt);
+        vm.stopPrank();
+
+        OTCPair.Order memory order = pair.getOrder(0);
+        assertTrue(order.status == OTCPair.OrderStatus.Filled);
+        assertEq(order.filledSellAmount, sellAmt);
+    }
+
+    function test_fillOrder_overflowSafe_partialFillLargeValues() public {
+        // sellAmt=2, buyAmt=type(uint256).max → buyAmt * fillAmt overflows
+        // without mulDiv, but the quotient is well-defined
+        uint256 sellAmt = 2;
+        uint256 buyAmt = type(uint256).max;
+        uint256 fillAmt = 1;
+
+        // Expected: ceil(max * 1 / 2) = (max / 2) + 1  (max is odd)
+        uint256 expectedBuyIn = (buyAmt / sellAmt) + 1;
+
+        MockERC20 sellToken = sellToken0 ? tokenA : tokenB;
+        MockERC20 buyToken = sellToken0 ? tokenB : tokenA;
+        sellToken.mint(maker, sellAmt);
+        buyToken.mint(taker, expectedBuyIn);
+
+        vm.startPrank(maker);
+        sellToken.approve(address(pair), sellAmt);
+        pair.createOrder(sellToken0, sellAmt, buyAmt);
+        vm.stopPrank();
+
+        vm.startPrank(taker);
+        buyToken.approve(address(pair), expectedBuyIn);
+        pair.fillOrder(0, fillAmt);
+        vm.stopPrank();
+
+        OTCPair.Order memory order = pair.getOrder(0);
+        assertEq(order.filledSellAmount, fillAmt);
+        assertTrue(order.status == OTCPair.OrderStatus.Active);
+    }
 }
