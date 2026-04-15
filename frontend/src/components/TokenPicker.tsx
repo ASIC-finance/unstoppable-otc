@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { isAddress } from 'viem'
 import { useTokens } from '../hooks/useTokens'
+import { useTokenInfo } from '../hooks/useTokenInfo'
 import { getTokenEntry, type TokenEntry } from '../config/tokenlist'
 import { filterTokens } from '../lib/tokenSearch'
 import { shortenAddress } from '../utils/format'
@@ -20,7 +21,9 @@ type Props = {
 /**
  * Searchable token picker backed by the chain's curated list, with pinned
  * tokens (WETH/USDC/USDT/…) at the top. Accepts a pasted raw address as a
- * fallback when the token is not in the list.
+ * fallback when the token is not in the list — and reads the on-chain
+ * ERC20 contract to populate name/symbol/decimals so the user sees real
+ * metadata instead of "Custom" before selecting.
  *
  * Implements the ARIA 1.2 combobox-with-listbox-popup pattern — search
  * input owns focus, options are referenced via aria-activedescendant.
@@ -55,23 +58,43 @@ export function TokenPicker({
     [tokens, query, pinned, excludeAddress],
   )
 
-  // A raw pasted address that's NOT in the list becomes a synthetic option so
-  // users can still select long-tail tokens.
+  // Validity / candidacy of the selected `value` and the in-flight `query`.
+  const valueAddr = value && isAddress(value) ? (value as `0x${string}`) : undefined
+  const valueEntry = valueAddr ? getTokenEntry(chainId, valueAddr) : undefined
+  // Selected value is "custom" when it's a real address but not in the list.
+  const valueNeedsLookup = !!valueAddr && !valueEntry
+
+  const queryAddrTrimmed = query.trim()
+  const queryAddr = isAddress(queryAddrTrimmed) ? (queryAddrTrimmed as `0x${string}`) : undefined
+  const queryAddrLower = queryAddr?.toLowerCase()
+  const queryAlreadyInList =
+    !!queryAddrLower && filtered.some(t => t.address.toLowerCase() === queryAddrLower)
+  const queryExcluded =
+    !!queryAddrLower && excludeAddress?.toLowerCase() === queryAddrLower
+  const queryNeedsLookup = !!queryAddr && !queryAlreadyInList && !queryExcluded
+
+  // On-chain reads via multicall — react-query dedupes the request when
+  // both lookups happen to point at the same address.
+  const valueOnChain = useTokenInfo(valueNeedsLookup ? valueAddr : undefined)
+  const queryOnChain = useTokenInfo(queryNeedsLookup ? queryAddr : undefined)
+
+  // Synthetic option for a pasted address that isn't in the curated list.
+  // Uses on-chain metadata when available so the user sees the real
+  // symbol/name immediately, with shortenAddress as a fallback while loading.
   const syntheticOption = useMemo<TokenEntry | null>(() => {
-    const q = query.trim()
-    if (!isAddress(q)) return null
-    const lowerQ = q.toLowerCase()
-    if (filtered.some(t => t.address.toLowerCase() === lowerQ)) return null
-    if (excludeAddress && lowerQ === excludeAddress.toLowerCase()) return null
+    if (!queryAddr || !queryNeedsLookup) return null
+    const symbol = queryOnChain.symbol ?? shortenAddress(queryAddr)
+    const name = queryOnChain.name ?? (queryOnChain.isLoading ? 'Loading…' : 'Custom token')
+    const decimals = queryOnChain.decimals ?? 18
     return {
       chainId,
-      name: 'Custom token',
-      address: lowerQ as `0x${string}`,
-      symbol: shortenAddress(q),
-      decimals: 18,
+      name,
+      address: queryAddrLower as `0x${string}`,
+      symbol,
+      decimals,
       logoURI: '',
     }
-  }, [query, filtered, excludeAddress, chainId])
+  }, [queryAddr, queryNeedsLookup, queryOnChain.symbol, queryOnChain.name, queryOnChain.decimals, queryOnChain.isLoading, queryAddrLower, chainId])
 
   const options = useMemo(
     () => (syntheticOption ? [syntheticOption, ...filtered] : filtered),
@@ -93,10 +116,6 @@ export function TokenPicker({
     setRawHighlight(Math.max(0, Math.min(i, Math.max(0, options.length - 1))))
   }
 
-  // Currently-selected entry for the button display.
-  const selectedEntry = value ? getTokenEntry(chainId, value) : undefined
-  const selectedLooksValid = value && isAddress(value)
-
   // ── Outside-click closes the popover ──────────────────────────
   useEffect(() => {
     if (!open) return
@@ -111,7 +130,6 @@ export function TokenPicker({
   // ── Auto-focus search when opening ────────────────────────────
   useEffect(() => {
     if (!open) return
-    // Defer to next tick so the input is mounted before we focus it.
     queueMicrotask(() => inputRef.current?.focus())
   }, [open])
 
@@ -141,7 +159,30 @@ export function TokenPicker({
     if (e.key === 'End') { setHighlight(options.length - 1); e.preventDefault(); return }
   }
 
-  const customBadge = selectedLooksValid && !selectedEntry
+  // Display values for the closed-state button. Prefer (in order):
+  //   1. Curated-list entry → already has logo + name + symbol
+  //   2. On-chain ERC20 metadata → real symbol/name even for off-list tokens
+  //   3. Loading shimmer copy → while the on-chain read is in flight
+  //   4. "Custom" placeholder → if the contract isn't a valid ERC20
+  let displaySymbol: string | undefined
+  let displayName: string | undefined
+  let displayLogo: string | undefined
+  if (valueEntry) {
+    displaySymbol = valueEntry.symbol
+    displayName = valueEntry.name
+    displayLogo = valueEntry.logoURI
+  } else if (valueAddr) {
+    if (valueOnChain.symbol) {
+      displaySymbol = valueOnChain.symbol
+      displayName = valueOnChain.name ?? shortenAddress(valueAddr)
+    } else if (valueOnChain.isLoading) {
+      displaySymbol = 'Loading…'
+      displayName = shortenAddress(valueAddr)
+    } else {
+      displaySymbol = 'Custom'
+      displayName = shortenAddress(valueAddr)
+    }
+  }
 
   return (
     <div className="picker-root" ref={containerRef}>
@@ -152,15 +193,15 @@ export function TokenPicker({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-controls={open ? listboxId : undefined}
-        aria-label={`${label}: ${selectedEntry?.symbol ?? (selectedLooksValid ? shortenAddress(value) : 'none selected')}`}
+        aria-label={`${label}: ${displaySymbol ?? 'none selected'}`}
         onClick={() => setOpen(o => !o)}
       >
         <span className="picker-selected">
-          {selectedEntry ? (
+          {displaySymbol ? (
             <>
-              {selectedEntry.logoURI ? (
+              {displayLogo ? (
                 <img
-                  src={selectedEntry.logoURI}
+                  src={displayLogo}
                   alt=""
                   width={22}
                   height={22}
@@ -170,17 +211,11 @@ export function TokenPicker({
                 />
               ) : (
                 <span className="picker-avatar picker-avatar-fallback" aria-hidden="true">
-                  {selectedEntry.symbol.slice(0, 2).toUpperCase()}
+                  {displaySymbol.slice(0, 2).toUpperCase()}
                 </span>
               )}
-              <span className="picker-symbol">{selectedEntry.symbol}</span>
-              <span className="picker-name">{selectedEntry.name}</span>
-            </>
-          ) : customBadge ? (
-            <>
-              <span className="picker-avatar picker-avatar-fallback" aria-hidden="true">?</span>
-              <span className="picker-symbol">Custom</span>
-              <span className="picker-name">{shortenAddress(value)}</span>
+              <span className="picker-symbol">{displaySymbol}</span>
+              {displayName && <span className="picker-name">{displayName}</span>}
             </>
           ) : (
             <span className="picker-placeholder">Select token</span>

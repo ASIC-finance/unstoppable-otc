@@ -1285,6 +1285,10 @@ a:focus-visible {
   right: 0;
   top: calc(100% + 0.35rem);
   display: grid;
+  /* Explicit minmax(0, 1fr) prevents grid-track blowout — without it,
+     pinned chips with intrinsic widths can push the row past the panel's
+     layout width and visually overflow the rounded background. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.6rem;
   max-height: 24rem;
   border: 1px solid var(--border-strong);
@@ -1292,6 +1296,8 @@ a:focus-visible {
   background: var(--surface);
   box-shadow: var(--shadow-md);
   padding: 0.7rem;
+  box-sizing: border-box;
+  overflow: hidden;
   animation: picker-in 120ms ease both;
 }
 
@@ -1312,6 +1318,9 @@ a:focus-visible {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .picker-chip {
@@ -1327,6 +1336,9 @@ a:focus-visible {
   font-size: 0.78rem;
   font-weight: 760;
   cursor: pointer;
+  flex-shrink: 0;
+  max-width: 100%;
+  box-sizing: border-box;
   transition: background-color 120ms ease, border-color 120ms ease;
 }
 
@@ -1349,6 +1361,7 @@ a:focus-visible {
 .picker-list {
   display: flex;
   flex-direction: column;
+  min-width: 0;
   max-height: 18rem;
   overflow-y: auto;
   margin: 0;

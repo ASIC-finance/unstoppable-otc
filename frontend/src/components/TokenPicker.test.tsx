@@ -28,6 +28,21 @@ vi.mock('../hooks/useTokens', () => ({
   }),
 }))
 
+// Configurable fake — tests can override per-call. Returns "no metadata" by
+// default so the picker shows its loading/custom states; the on-chain
+// custom-token test sets a richer return value.
+const tokenInfoMock = vi.fn(() => ({
+  name: undefined as string | undefined,
+  symbol: undefined as string | undefined,
+  decimals: undefined as number | undefined,
+  isLoading: false,
+  isError: false,
+}))
+
+vi.mock('../hooks/useTokenInfo', () => ({
+  useTokenInfo: (...args: unknown[]) => tokenInfoMock(...(args as [])),
+}))
+
 vi.mock('../config/tokenlist', async () => {
   const actual = await vi.importActual<typeof import('../config/tokenlist')>('../config/tokenlist')
   return {
@@ -55,8 +70,14 @@ function Harness({ initial = '', exclude }: { initial?: string; exclude?: string
 
 describe('TokenPicker', () => {
   beforeEach(() => {
-    // jsdom doesn't implement Element.prototype.scrollIntoView
     Element.prototype.scrollIntoView = vi.fn()
+    tokenInfoMock.mockReturnValue({
+      name: undefined,
+      symbol: undefined,
+      decimals: undefined,
+      isLoading: false,
+      isError: false,
+    })
   })
 
   it('renders a "Select token" placeholder when value is empty', () => {
@@ -78,7 +99,6 @@ describe('TokenPicker', () => {
 
     const listbox = await screen.findByRole('listbox', { name: /sell token/i })
     const options = within(listbox).getAllByRole('option')
-    // Pinned (WETH, USDC) should appear before DAI for an empty query
     const symbols = options.map(o => o.querySelector('.picker-option-symbol')?.textContent)
     expect(symbols.indexOf('WETH')).toBeLessThan(symbols.indexOf('DAI'))
     expect(symbols.indexOf('USDC')).toBeLessThan(symbols.indexOf('DAI'))
@@ -101,9 +121,7 @@ describe('TokenPicker', () => {
   it('selects a token when clicked', async () => {
     const user = userEvent.setup()
     const onChange = vi.fn()
-    render(
-      <TokenPicker label="Sell Token" value="" onChange={onChange} />,
-    )
+    render(<TokenPicker label="Sell Token" value="" onChange={onChange} />)
     await user.click(screen.getByRole('button', { name: /sell token/i }))
 
     const listbox = await screen.findByRole('listbox')
@@ -120,18 +138,6 @@ describe('TokenPicker', () => {
 
     const listbox = await screen.findByRole('listbox')
     expect(within(listbox).queryByText('WETH')).not.toBeInTheDocument()
-  })
-
-  it('shows a synthetic "Custom token" option when a non-listed address is pasted', async () => {
-    const user = userEvent.setup()
-    render(<Harness />)
-    await user.click(screen.getByRole('button', { name: /sell token/i }))
-
-    const search = await screen.findByRole('combobox')
-    const customAddr = '0x1111111111111111111111111111111111111111'
-    await user.type(search, customAddr)
-
-    expect(screen.getByText('Custom token')).toBeInTheDocument()
   })
 
   it('closes when Escape is pressed', async () => {
@@ -153,7 +159,6 @@ describe('TokenPicker', () => {
     render(<TokenPicker label="Sell Token" value="" onChange={onChange} />)
     await user.click(screen.getByRole('button', { name: /sell token/i }))
 
-    // First option is WETH (pinned). Press Enter to select.
     await user.keyboard('{Enter}')
     expect(onChange).toHaveBeenCalledWith(weth.address)
   })
@@ -164,8 +169,82 @@ describe('TokenPicker', () => {
     render(<TokenPicker label="Sell Token" value="" onChange={onChange} />)
     await user.click(screen.getByRole('button', { name: /sell token/i }))
 
-    // First option is WETH; ArrowDown → USDC. Enter selects.
     await user.keyboard('{ArrowDown}{Enter}')
     expect(onChange).toHaveBeenCalledWith(usdc.address)
+  })
+
+  it('shows on-chain symbol/name for a pasted custom address (not "Custom token")', async () => {
+    const user = userEvent.setup()
+    tokenInfoMock.mockReturnValue({
+      name: 'Some Random Token',
+      symbol: 'SRT',
+      decimals: 18,
+      isLoading: false,
+      isError: false,
+    })
+
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: /sell token/i }))
+
+    const search = await screen.findByRole('combobox')
+    const customAddr = '0x1111111111111111111111111111111111111111'
+    await user.type(search, customAddr)
+
+    // The synthetic option should display the on-chain metadata, not "Custom".
+    expect(screen.getByText('SRT')).toBeInTheDocument()
+    expect(screen.getByText('Some Random Token')).toBeInTheDocument()
+    expect(screen.queryByText('Custom token')).not.toBeInTheDocument()
+  })
+
+  it('falls back to "Loading…" while on-chain metadata is in flight', async () => {
+    const user = userEvent.setup()
+    tokenInfoMock.mockReturnValue({
+      name: undefined,
+      symbol: undefined,
+      decimals: undefined,
+      isLoading: true,
+      isError: false,
+    })
+
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: /sell token/i }))
+
+    const search = await screen.findByRole('combobox')
+    await user.type(search, '0x1111111111111111111111111111111111111111')
+
+    expect(screen.getByText(/loading/i)).toBeInTheDocument()
+  })
+
+  it('falls back to "Custom token" when the on-chain read errors out', async () => {
+    const user = userEvent.setup()
+    tokenInfoMock.mockReturnValue({
+      name: undefined,
+      symbol: undefined,
+      decimals: undefined,
+      isLoading: false,
+      isError: true,
+    })
+
+    render(<Harness />)
+    await user.click(screen.getByRole('button', { name: /sell token/i }))
+
+    const search = await screen.findByRole('combobox')
+    await user.type(search, '0x1111111111111111111111111111111111111111')
+
+    expect(screen.getByText('Custom token')).toBeInTheDocument()
+  })
+
+  it('shows on-chain symbol/name in the closed-state button for a custom selected address', () => {
+    tokenInfoMock.mockReturnValue({
+      name: 'Some Random Token',
+      symbol: 'SRT',
+      decimals: 18,
+      isLoading: false,
+      isError: false,
+    })
+
+    render(<Harness initial="0x1111111111111111111111111111111111111111" />)
+    expect(screen.getByText('SRT')).toBeInTheDocument()
+    expect(screen.getByText('Some Random Token')).toBeInTheDocument()
   })
 })
