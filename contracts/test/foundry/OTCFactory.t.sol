@@ -55,6 +55,18 @@ contract OTCFactoryTest is OTCTestBase {
         factory.createPair(address(0), address(tokenA));
     }
 
+    function test_createPair_revertsWhenTokenIsEOA() public {
+        // Plain EOA with no code — must be rejected, otherwise orders would
+        // revert unhelpfully later.
+        address eoa = makeAddr("not-a-contract");
+        vm.expectRevert(OTCFactory.NotAContract.selector);
+        factory.createPair(address(tokenA), eoa);
+
+        // And the reversed-argument path (so sort order doesn't matter).
+        vm.expectRevert(OTCFactory.NotAContract.selector);
+        factory.createPair(eoa, address(tokenA));
+    }
+
     function test_createPair_revertsDuplicate() public {
         factory.createPair(address(tokenA), address(tokenB));
 

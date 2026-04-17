@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useAccount, useSimulateContract } from 'wagmi'
-import { formatUnits, parseUnits } from 'viem'
+import { formatUnits, maxUint256, parseUnits } from 'viem'
 import { useTokenInfo } from '../hooks/useTokenInfo'
 import { useTokenAllowance } from '../hooks/useTokenAllowance'
 import { useFillOrder } from '../hooks/useFillOrder'
@@ -81,7 +81,10 @@ export function FillForm({
     address: pairAddress,
     abi: OTCPairABI,
     functionName: 'fillOrder',
-    args: [orderId, fillAmountParsed],
+    // UI doesn't cap price: the cost is derived from the on-chain quote above
+    // via the exact same ceil-div the pair uses. Pass infinity; any mismatch
+    // becomes a slippage revert from the maker's side, not a taker cap revert.
+    args: [orderId, fillAmountParsed, maxUint256],
     query: { enabled: isValidAmount && !needsApproval && !isPending },
   })
 
@@ -172,7 +175,7 @@ export function FillForm({
       ) : (
         <button
           type="button"
-          onClick={() => fillOrder(pairAddress, orderId, fillAmountParsed)}
+          onClick={() => fillOrder(pairAddress, orderId, fillAmountParsed, maxUint256)}
           disabled={cannotFill}
           className="primary-button min-h-0 px-3 py-2 text-sm"
           title={simulation.isError ? 'Simulation reverted — check order size' : undefined}

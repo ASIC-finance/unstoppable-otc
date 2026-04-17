@@ -7,6 +7,7 @@ import { CopyButton } from './CopyButton'
 import { isSameAddress } from '../utils/address'
 import { shortenAddress, filledPercent } from '../utils/format'
 import type { Order } from '../types/orders'
+import { DEFAULT_MIN_BUY_BPS, bpsToSlippagePercent } from '../types/orders'
 
 type Props = {
   orders: readonly Order[]
@@ -154,6 +155,14 @@ function OrderRow({
           <span aria-hidden="true">{status.icon}</span>
           <span>{status.label}</span>
         </span>
+        {order.minBuyBps > 0 && order.minBuyBps < DEFAULT_MIN_BUY_BPS && (
+          <span
+            className="status-pill status-muted ml-1 min-h-0 px-2 py-1 text-[0.65rem]"
+            title={`Maker accepts up to ${bpsToSlippagePercent(order.minBuyBps)} slippage on delivered buy-token (e.g. fee-on-transfer).`}
+          >
+            FoT {bpsToSlippagePercent(order.minBuyBps)}
+          </span>
+        )}
       </td>
       {showFillAction && (
         <td>

@@ -15,6 +15,21 @@ import { Steps } from '../components/create-order/Steps'
 import { OrderSummary } from '../components/create-order/OrderSummary'
 import { CreateOrderSuccess } from '../components/create-order/CreateOrderSuccess'
 import { TokenPicker } from '../components/TokenPicker'
+import { DEFAULT_MIN_BUY_BPS } from '../types/orders'
+
+/**
+ * Slippage presets — basis points expressed as the `minBuyBps` wire value.
+ *   10000 bps = 0% slippage allowed (safe for vanilla ERC-20s, rejects FoT).
+ *    9950   = 0.5%
+ *    9900   = 1%
+ *    9700   = 3% — covers 1% FoT on both inbound and outbound hops.
+ */
+const SLIPPAGE_PRESETS = [
+  { label: '0% (default)', bps: 10_000, hint: 'Rejects fee-on-transfer tokens.' },
+  { label: '0.5%', bps: 9_950, hint: 'Small tolerance for low-fee tokens.' },
+  { label: '1%', bps: 9_900, hint: 'Common FoT buy-token rate.' },
+  { label: '3%', bps: 9_700, hint: '1% FoT on both inbound and outbound hops.' },
+] as const
 
 /** 6 decimals of precision is plenty for a preview rate — avoids Number() overflow. */
 function computeRate(buyAmount: bigint, sellAmount: bigint, buyDecimals: number): string {
@@ -32,6 +47,7 @@ export function CreateOrder() {
   const [buyToken, setBuyToken] = useState('')
   const [sellAmount, setSellAmount] = useState('')
   const [buyAmount, setBuyAmount] = useState('')
+  const [minBuyBps, setMinBuyBps] = useState<number>(DEFAULT_MIN_BUY_BPS)
 
   const sellAddr = isAddress(sellToken) ? (sellToken as `0x${string}`) : undefined
   const buyAddr = isAddress(buyToken) ? (buyToken as `0x${string}`) : undefined
@@ -95,6 +111,7 @@ export function CreateOrder() {
     setBuyToken('')
     setSellAmount('')
     setBuyAmount('')
+    setMinBuyBps(DEFAULT_MIN_BUY_BPS)
     resetOrder()
   }
 
@@ -321,6 +338,37 @@ export function CreateOrder() {
               )}
             </div>
 
+            <fieldset className="field-stack">
+              <legend className="field-label">Slippage Tolerance (Maker)</legend>
+              <p className="text-xs text-[var(--text-muted)]">
+                How much less buy-token you accept on delivery. Lower values are
+                stricter; use higher values only when the buy token charges a
+                transfer fee (fee-on-transfer).
+              </p>
+              <div
+                className="inline-flex flex-wrap gap-2"
+                role="radiogroup"
+                aria-label="Slippage tolerance"
+              >
+                {SLIPPAGE_PRESETS.map(preset => {
+                  const selected = minBuyBps === preset.bps
+                  return (
+                    <button
+                      key={preset.bps}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setMinBuyBps(preset.bps)}
+                      title={preset.hint}
+                      className={selected ? 'primary-button min-h-0 px-3 py-2 text-xs' : 'ghost-button min-h-0 px-3 py-2 text-xs'}
+                    >
+                      {preset.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </fieldset>
+
             {sellAddr && buyAddr && (
               <div className="token-panel space-y-2 text-xs">
                 <div className="flex justify-between">
@@ -371,7 +419,7 @@ export function CreateOrder() {
                   type="button"
                   onClick={() => {
                     if (!pair || !parsedSellAmount || !parsedBuyAmount || sellDecimals == null || buyDecimals == null) return
-                    createOrder(pair, sellToken0, sellAmount, buyAmount, sellDecimals, buyDecimals)
+                    createOrder(pair, sellToken0, sellAmount, buyAmount, sellDecimals, buyDecimals, minBuyBps)
                   }}
                   disabled={!step3Valid || isCreatingOrder}
                   className="primary-button"

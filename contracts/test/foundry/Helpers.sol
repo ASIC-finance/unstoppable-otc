@@ -16,6 +16,12 @@ abstract contract OTCTestBase is Test {
     address internal other = makeAddr("other");
 
     uint256 internal constant INITIAL_BALANCE = 1_000_000e18;
+    /// @dev Default slippage tolerance used by most tests: zero slippage allowed.
+    /// Standard ERC-20 tokens (no fee-on-transfer) always satisfy this.
+    uint16 internal constant DEFAULT_MIN_BUY_BPS = 10_000;
+    /// @dev Pass-any-price max used by most fill tests — the contract
+    /// computes the actual cost deterministically, so infinity is safe here.
+    uint256 internal constant MAX_BUY = type(uint256).max;
 
     function setUp() public virtual {
         factory = new OTCFactory();
@@ -36,21 +42,31 @@ abstract contract OTCTestBase is Test {
         sellToken0 = pair.token0() == address(tokenA);
     }
 
-    /// @dev Approve and create an order as maker
+    /// @dev Approve and create an order as maker — default `minBuyBps` = 10000.
     function _makerCreateOrder(
         OTCPair pair,
         bool sellToken0,
         uint256 sellAmount,
         uint256 buyAmount
     ) internal returns (uint256 orderId) {
+        return _makerCreateOrder(pair, sellToken0, sellAmount, buyAmount, DEFAULT_MIN_BUY_BPS);
+    }
+
+    function _makerCreateOrder(
+        OTCPair pair,
+        bool sellToken0,
+        uint256 sellAmount,
+        uint256 buyAmount,
+        uint16 minBuyBps
+    ) internal returns (uint256 orderId) {
         MockERC20 sellToken = sellToken0 ? tokenA : tokenB;
         vm.startPrank(maker);
         sellToken.approve(address(pair), sellAmount);
-        orderId = pair.createOrder(sellToken0, sellAmount, buyAmount);
+        orderId = pair.createOrder(sellToken0, sellAmount, buyAmount, minBuyBps);
         vm.stopPrank();
     }
 
-    /// @dev Approve and fill an order as taker
+    /// @dev Approve and fill an order as taker with max-price = infinity.
     function _takerFillOrder(
         OTCPair pair,
         bool sellToken0,
@@ -61,7 +77,7 @@ abstract contract OTCTestBase is Test {
         MockERC20 buyToken = sellToken0 ? tokenB : tokenA;
         vm.startPrank(taker);
         buyToken.approve(address(pair), approveAmount);
-        pair.fillOrder(orderId, sellAmountOut);
+        pair.fillOrder(orderId, sellAmountOut, MAX_BUY);
         vm.stopPrank();
     }
 }

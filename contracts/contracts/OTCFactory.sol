@@ -21,15 +21,21 @@ contract OTCFactory {
     error IdenticalTokens();
     error ZeroAddress();
     error PairExists();
+    error NotAContract();
 
     /// @notice Deploy a new isolated OTCPair for a token pair
     /// @param tokenA One of the two tokens
     /// @param tokenB The other token
     /// @return pair The address of the newly deployed pair
+    /// @dev Both tokens must already be deployed contracts. This rejects
+    ///      EOAs and self-destructed contracts — any order against a
+    ///      non-contract "token" would revert unhelpfully, so we block
+    ///      the pair from being created at all.
     function createPair(address tokenA, address tokenB) external returns (address pair) {
         if (tokenA == tokenB) revert IdenticalTokens();
         (address t0, address t1) = tokenA < tokenB ? (tokenA, tokenB) : (tokenB, tokenA);
         if (t0 == address(0)) revert ZeroAddress();
+        if (t0.code.length == 0 || t1.code.length == 0) revert NotAContract();
         if (getPair[t0][t1] != address(0)) revert PairExists();
 
         // Deploy with CREATE2 for deterministic addresses

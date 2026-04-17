@@ -2,6 +2,13 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers";
 
+// ── Constants shared across all tests ────────────────────────────
+// 10000 bps = 0% slippage allowed. Safe default for vanilla ERC-20s.
+const DEFAULT_MIN_BUY_BPS = 10_000;
+// type(uint256).max — "accept any price". The contract computes the
+// actual cost deterministically, so infinity is safe in tests.
+const MAX_BUY = ethers.MaxUint256;
+
 describe("OTCFactory + OTCPair", function () {
   async function deployFixture() {
     const [maker, taker, other] = await ethers.getSigners();
@@ -74,6 +81,19 @@ describe("OTCFactory + OTCPair", function () {
       ).to.be.revertedWithCustomError(factory, "ZeroAddress");
     });
 
+    it("should revert when a token is not a contract", async function () {
+      // EOA-only address has no code; factory must refuse so orders don't
+      // revert unhelpfully later when trying to call transferFrom on it.
+      const { factory, tokenA, other } = await loadFixture(deployFixture);
+      await expect(
+        factory.createPair(tokenA.target, other.address)
+      ).to.be.revertedWithCustomError(factory, "NotAContract");
+      // reversed-arg path
+      await expect(
+        factory.createPair(other.address, tokenA.target)
+      ).to.be.revertedWithCustomError(factory, "NotAContract");
+    });
+
     it("should revert on duplicate pair", async function () {
       const { factory, tokenA, tokenB } = await loadFixture(deployFixture);
       await factory.createPair(tokenA.target, tokenB.target);
@@ -98,7 +118,7 @@ describe("OTCFactory + OTCPair", function () {
     });
 
     it("should paginate pairs", async function () {
-      const { factory, maker } = await loadFixture(deployFixture);
+      const { factory } = await loadFixture(deployFixture);
       const MockERC20 = await ethers.getContractFactory("MockERC20");
 
       // Create 3 distinct pairs
@@ -134,21 +154,24 @@ describe("OTCFactory + OTCPair", function () {
 
   describe("OTCPair.createOrder", function () {
     it("should create an order and escrow tokens", async function () {
-      const { pair, tokenA, tokenB, maker, sellToken0 } = await loadFixture(deployWithPairFixture);
+      const { pair, tokenA, maker, sellToken0 } = await loadFixture(deployWithPairFixture);
       const sellAmount = ethers.parseEther("100");
       const buyAmount = ethers.parseEther("200");
 
       await tokenA.connect(maker).approve(pair.target, sellAmount);
 
-      await expect(pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount))
+      await expect(
+        pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount, DEFAULT_MIN_BUY_BPS)
+      )
         .to.emit(pair, "OrderCreated")
-        .withArgs(0, maker.address, sellToken0, sellAmount, buyAmount);
+        .withArgs(0, maker.address, sellToken0, sellAmount, buyAmount, DEFAULT_MIN_BUY_BPS);
 
       const order = await pair.getOrder(0);
       expect(order.maker).to.equal(maker.address);
       expect(order.sellToken0).to.equal(sellToken0);
       expect(order.sellAmount).to.equal(sellAmount);
       expect(order.buyAmount).to.equal(buyAmount);
+      expect(order.minBuyBps).to.equal(DEFAULT_MIN_BUY_BPS);
       expect(order.status).to.equal(0); // Active
     });
 
@@ -163,7 +186,9 @@ describe("OTCFactory + OTCPair", function () {
 
       const sellAmount = ethers.parseEther("100");
       await feeToken.connect(maker).approve(pair.target, sellAmount);
-      await pair.connect(maker).createOrder(sellToken0, sellAmount, ethers.parseEther("200"));
+      await pair.connect(maker).createOrder(
+        sellToken0, sellAmount, ethers.parseEther("200"), DEFAULT_MIN_BUY_BPS
+      );
 
       const order = await pair.getOrder(0);
       // 1% fee: actual received = 99
@@ -173,11 +198,25 @@ describe("OTCFactory + OTCPair", function () {
     it("should revert on zero amounts", async function () {
       const { pair, maker } = await loadFixture(deployWithPairFixture);
       await expect(
-        pair.connect(maker).createOrder(true, 0, 100)
+        pair.connect(maker).createOrder(true, 0, 100, DEFAULT_MIN_BUY_BPS)
       ).to.be.revertedWithCustomError(pair, "ZeroAmount");
       await expect(
-        pair.connect(maker).createOrder(true, 100, 0)
+        pair.connect(maker).createOrder(true, 100, 0, DEFAULT_MIN_BUY_BPS)
       ).to.be.revertedWithCustomError(pair, "ZeroAmount");
+    });
+
+    it("should revert on minBuyBps = 0", async function () {
+      const { pair, maker } = await loadFixture(deployWithPairFixture);
+      await expect(
+        pair.connect(maker).createOrder(true, 100, 100, 0)
+      ).to.be.revertedWithCustomError(pair, "InvalidMinBuyBps");
+    });
+
+    it("should revert on minBuyBps > 10000", async function () {
+      const { pair, maker } = await loadFixture(deployWithPairFixture);
+      await expect(
+        pair.connect(maker).createOrder(true, 100, 100, 10_001)
+      ).to.be.revertedWithCustomError(pair, "InvalidMinBuyBps");
     });
   });
 
@@ -190,14 +229,14 @@ describe("OTCFactory + OTCPair", function () {
       const buyAmount = ethers.parseEther("200");
 
       await tokenA.connect(maker).approve(pair.target, sellAmount);
-      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount);
+      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount, DEFAULT_MIN_BUY_BPS);
 
       await tokenB.connect(taker).approve(pair.target, buyAmount);
 
       const makerBal = await tokenB.balanceOf(maker.address);
       const takerBal = await tokenA.balanceOf(taker.address);
 
-      await expect(pair.connect(taker).fillOrder(0, sellAmount))
+      await expect(pair.connect(taker).fillOrder(0, sellAmount, MAX_BUY))
         .to.emit(pair, "OrderFilled")
         .withArgs(0, taker.address, sellAmount, buyAmount);
 
@@ -214,13 +253,13 @@ describe("OTCFactory + OTCPair", function () {
       const buyAmount = ethers.parseEther("200");
 
       await tokenA.connect(maker).approve(pair.target, sellAmount);
-      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount);
+      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount, DEFAULT_MIN_BUY_BPS);
 
       const fillSell = ethers.parseEther("50");
       const expectedBuy = ethers.parseEther("100");
       await tokenB.connect(taker).approve(pair.target, expectedBuy);
 
-      await pair.connect(taker).fillOrder(0, fillSell);
+      await pair.connect(taker).fillOrder(0, fillSell, MAX_BUY);
 
       const order = await pair.getOrder(0);
       expect(order.status).to.equal(0); // Still Active
@@ -233,45 +272,63 @@ describe("OTCFactory + OTCPair", function () {
       const buyAmount = ethers.parseEther("200");
 
       await tokenA.connect(maker).approve(pair.target, sellAmount);
-      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount);
+      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount, DEFAULT_MIN_BUY_BPS);
 
       await tokenB.connect(taker).approve(pair.target, ethers.parseEther("120"));
-      await pair.connect(taker).fillOrder(0, ethers.parseEther("60"));
+      await pair.connect(taker).fillOrder(0, ethers.parseEther("60"), MAX_BUY);
 
       await tokenB.mint(other.address, ethers.parseEther("1000"));
       await tokenB.connect(other).approve(pair.target, ethers.parseEther("80"));
-      await pair.connect(other).fillOrder(0, ethers.parseEther("40"));
+      await pair.connect(other).fillOrder(0, ethers.parseEther("40"), MAX_BUY);
 
       const order = await pair.getOrder(0);
       expect(order.status).to.equal(1); // Filled
     });
 
     it("should revert when not active", async function () {
-      const { pair, tokenA, tokenB, maker, taker, sellToken0 } = await loadFixture(deployWithPairFixture);
+      const { pair, tokenA, maker, taker, sellToken0 } = await loadFixture(deployWithPairFixture);
       await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
-      await pair.connect(maker).createOrder(sellToken0, ethers.parseEther("100"), ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(
+        sellToken0, ethers.parseEther("100"), ethers.parseEther("100"), DEFAULT_MIN_BUY_BPS
+      );
       await pair.connect(maker).cancelOrder(0);
 
       await expect(
-        pair.connect(taker).fillOrder(0, ethers.parseEther("100"))
+        pair.connect(taker).fillOrder(0, ethers.parseEther("100"), MAX_BUY)
       ).to.be.revertedWithCustomError(pair, "OrderNotActive");
     });
 
     it("should revert on zero fill", async function () {
       const { pair, tokenA, maker, taker, sellToken0 } = await loadFixture(deployWithPairFixture);
       await tokenA.connect(maker).approve(pair.target, 100n);
-      await pair.connect(maker).createOrder(sellToken0, 100, 100);
-      await expect(pair.connect(taker).fillOrder(0, 0))
+      await pair.connect(maker).createOrder(sellToken0, 100, 100, DEFAULT_MIN_BUY_BPS);
+      await expect(pair.connect(taker).fillOrder(0, 0, MAX_BUY))
         .to.be.revertedWithCustomError(pair, "ZeroAmount");
     });
 
     it("should revert when exceeding remaining", async function () {
       const { pair, tokenA, maker, taker, sellToken0 } = await loadFixture(deployWithPairFixture);
       await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
-      await pair.connect(maker).createOrder(sellToken0, ethers.parseEther("100"), ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(
+        sellToken0, ethers.parseEther("100"), ethers.parseEther("100"), DEFAULT_MIN_BUY_BPS
+      );
       await expect(
-        pair.connect(taker).fillOrder(0, ethers.parseEther("100") + 1n)
+        pair.connect(taker).fillOrder(0, ethers.parseEther("100") + 1n, MAX_BUY)
       ).to.be.revertedWithCustomError(pair, "ExceedsRemaining");
+    });
+
+    it("should revert when taker's maxBuyAmountIn is exceeded", async function () {
+      const { pair, tokenA, maker, taker, sellToken0 } = await loadFixture(deployWithPairFixture);
+      // sell=100, buy=200 → fill of 50 sells costs 100 buy-token
+      await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(
+        sellToken0, ethers.parseEther("100"), ethers.parseEther("200"), DEFAULT_MIN_BUY_BPS
+      );
+
+      // Taker caps price at 99 — below the 100 required → must revert
+      await expect(
+        pair.connect(taker).fillOrder(0, ethers.parseEther("50"), ethers.parseEther("99"))
+      ).to.be.revertedWithCustomError(pair, "ExceedsMaxBuy");
     });
 
     it("should round up buyAmountIn to protect maker", async function () {
@@ -279,11 +336,11 @@ describe("OTCFactory + OTCPair", function () {
       // sell=100, buy=99. Partial fill of 50: ceil(99*50/100)=50 not 49
       await tokenA.mint(maker.address, 100n);
       await tokenA.connect(maker).approve(pair.target, 100n);
-      await pair.connect(maker).createOrder(sellToken0, 100, 99);
+      await pair.connect(maker).createOrder(sellToken0, 100, 99, DEFAULT_MIN_BUY_BPS);
 
       await tokenB.mint(taker.address, 99n);
       await tokenB.connect(taker).approve(pair.target, 99n);
-      await expect(pair.connect(taker).fillOrder(0, 50))
+      await expect(pair.connect(taker).fillOrder(0, 50, MAX_BUY))
         .to.emit(pair, "OrderFilled")
         .withArgs(0, taker.address, 50, 50); // 50 not 49
     });
@@ -293,10 +350,10 @@ describe("OTCFactory + OTCPair", function () {
 
   describe("OTCPair.cancelOrder", function () {
     it("should cancel and refund", async function () {
-      const { pair, tokenA, tokenB, maker, sellToken0 } = await loadFixture(deployWithPairFixture);
+      const { pair, tokenA, maker, sellToken0 } = await loadFixture(deployWithPairFixture);
       const sellAmount = ethers.parseEther("100");
       await tokenA.connect(maker).approve(pair.target, sellAmount);
-      await pair.connect(maker).createOrder(sellToken0, sellAmount, sellAmount);
+      await pair.connect(maker).createOrder(sellToken0, sellAmount, sellAmount, DEFAULT_MIN_BUY_BPS);
 
       const bal = await tokenA.balanceOf(maker.address);
       await expect(pair.connect(maker).cancelOrder(0))
@@ -307,10 +364,12 @@ describe("OTCFactory + OTCPair", function () {
     it("should cancel partially filled and refund remaining", async function () {
       const { pair, tokenA, tokenB, maker, taker, sellToken0 } = await loadFixture(deployWithPairFixture);
       await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
-      await pair.connect(maker).createOrder(sellToken0, ethers.parseEther("100"), ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(
+        sellToken0, ethers.parseEther("100"), ethers.parseEther("100"), DEFAULT_MIN_BUY_BPS
+      );
 
       await tokenB.connect(taker).approve(pair.target, ethers.parseEther("50"));
-      await pair.connect(taker).fillOrder(0, ethers.parseEther("50"));
+      await pair.connect(taker).fillOrder(0, ethers.parseEther("50"), MAX_BUY);
 
       const bal = await tokenA.balanceOf(maker.address);
       await pair.connect(maker).cancelOrder(0);
@@ -320,7 +379,9 @@ describe("OTCFactory + OTCPair", function () {
     it("should revert if not maker", async function () {
       const { pair, tokenA, maker, taker, sellToken0 } = await loadFixture(deployWithPairFixture);
       await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
-      await pair.connect(maker).createOrder(sellToken0, ethers.parseEther("100"), ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(
+        sellToken0, ethers.parseEther("100"), ethers.parseEther("100"), DEFAULT_MIN_BUY_BPS
+      );
       await expect(pair.connect(taker).cancelOrder(0))
         .to.be.revertedWithCustomError(pair, "NotMaker");
     });
@@ -334,14 +395,14 @@ describe("OTCFactory + OTCPair", function () {
       const amt = ethers.parseEther("10");
       await tokenA.connect(maker).approve(pair.target, amt * 3n);
 
-      await pair.connect(maker).createOrder(sellToken0, amt, amt);
-      await pair.connect(maker).createOrder(sellToken0, amt, amt);
-      await pair.connect(maker).createOrder(sellToken0, amt, amt);
+      await pair.connect(maker).createOrder(sellToken0, amt, amt, DEFAULT_MIN_BUY_BPS);
+      await pair.connect(maker).createOrder(sellToken0, amt, amt, DEFAULT_MIN_BUY_BPS);
+      await pair.connect(maker).createOrder(sellToken0, amt, amt, DEFAULT_MIN_BUY_BPS);
       expect(await pair.getActiveOrderCount()).to.equal(3);
 
       // Fill order 1
       await tokenB.connect(taker).approve(pair.target, amt);
-      await pair.connect(taker).fillOrder(1, amt);
+      await pair.connect(taker).fillOrder(1, amt, MAX_BUY);
       expect(await pair.getActiveOrderCount()).to.equal(2);
 
       // Cancel order 0
@@ -359,19 +420,45 @@ describe("OTCFactory + OTCPair", function () {
       await tokenA.connect(maker).approve(pair.target, amt * 2n);
       await tokenB.connect(taker).approve(pair.target, amt);
 
-      await pair.connect(maker).createOrder(sellToken0, amt, amt);
-      await pair.connect(taker).createOrder(!sellToken0, amt, amt);
-      await pair.connect(maker).createOrder(sellToken0, amt, amt);
+      await pair.connect(maker).createOrder(sellToken0, amt, amt, DEFAULT_MIN_BUY_BPS);
+      await pair.connect(taker).createOrder(!sellToken0, amt, amt, DEFAULT_MIN_BUY_BPS);
+      await pair.connect(maker).createOrder(sellToken0, amt, amt, DEFAULT_MIN_BUY_BPS);
 
       expect(await pair.getMakerOrderCount(maker.address)).to.equal(2);
       expect(await pair.getMakerOrderCount(taker.address)).to.equal(1);
+    });
+
+    it("should track active maker orders separately from history", async function () {
+      const { pair, tokenA, tokenB, maker, taker, sellToken0 } = await loadFixture(deployWithPairFixture);
+      const amt = ethers.parseEther("10");
+      await tokenA.connect(maker).approve(pair.target, amt * 2n);
+
+      // Create two orders
+      await pair.connect(maker).createOrder(sellToken0, amt, amt, DEFAULT_MIN_BUY_BPS);
+      await pair.connect(maker).createOrder(sellToken0, amt, amt, DEFAULT_MIN_BUY_BPS);
+
+      expect(await pair.getMakerOrderCount(maker.address)).to.equal(2);
+      expect(await pair.getActiveMakerOrderCount(maker.address)).to.equal(2);
+
+      // Fill one fully — history unchanged, active drops to 1
+      await tokenB.connect(taker).approve(pair.target, amt);
+      await pair.connect(taker).fillOrder(0, amt, MAX_BUY);
+
+      expect(await pair.getMakerOrderCount(maker.address)).to.equal(2);
+      expect(await pair.getActiveMakerOrderCount(maker.address)).to.equal(1);
+
+      const [activeIds] = await pair.getActiveMakerOrders(maker.address, 0, 10);
+      expect(activeIds.length).to.equal(1);
+      expect(activeIds[0]).to.equal(1); // only order 1 is still active
     });
   });
 
   // ── Event accuracy with fee-on-transfer buy token ─────────────
 
   describe("OTCPair.fillOrder event accuracy", function () {
-    it("should emit actual delivered amount, not quoted amount, for fee-on-transfer buy tokens", async function () {
+    it("should reject fee-on-transfer buy token at 0% slippage (default)", async function () {
+      // Default minBuyBps=10000 demands maker receives exactly buyAmountIn.
+      // With a 1% FoT buy token, the maker short-receives → SlippageExceeded.
       const { factory, tokenA, feeToken, maker, taker } = await loadFixture(deployFixture);
 
       await factory.createPair(tokenA.target, feeToken.target);
@@ -384,17 +471,39 @@ describe("OTCFactory + OTCPair", function () {
       const sellAmount = ethers.parseEther("100");
       const buyAmount = ethers.parseEther("100");
 
-      // Maker sells tokenA, wants feeToken (1% fee on transfer)
       await tokenA.connect(maker).approve(pair.target, sellAmount);
-      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount);
+      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount, DEFAULT_MIN_BUY_BPS);
 
-      // Taker fills: pays 100 feeToken, but pair receives 99 (1% fee),
-      // then pair sends 99 to maker, maker receives 98.01 (another 1% fee)
+      await feeToken.connect(taker).approve(pair.target, buyAmount);
+      await expect(pair.connect(taker).fillOrder(0, sellAmount, MAX_BUY))
+        .to.be.revertedWithCustomError(pair, "SlippageExceeded");
+    });
+
+    it("should emit post-outbound delivered amount when maker opts into slippage", async function () {
+      // Maker sets 97% minBuyBps so both FoT hops (in + out) are allowed.
+      // Taker pays 100 feeToken → pair receives 99 (1% fee) → pair sends 99
+      // to maker → maker receives 98.01 (another 1% fee). Event must emit
+      // 98.01 (the delivered amount), not 100 (the quoted) or 99 (inbound).
+      const { factory, tokenA, feeToken, maker, taker } = await loadFixture(deployFixture);
+
+      await factory.createPair(tokenA.target, feeToken.target);
+      const pairAddr = await factory.getPair(tokenA.target, feeToken.target);
+      const pair = await ethers.getContractAt("OTCPair", pairAddr);
+
+      const token0 = await pair.token0();
+      const sellToken0 = token0.toLowerCase() === String(tokenA.target).toLowerCase();
+
+      const sellAmount = ethers.parseEther("100");
+      const buyAmount = ethers.parseEther("100");
+
+      await tokenA.connect(maker).approve(pair.target, sellAmount);
+      // 9700 bps = accept up to 3% underdelivery
+      await pair.connect(maker).createOrder(sellToken0, sellAmount, buyAmount, 9_700);
+
       await feeToken.connect(taker).approve(pair.target, buyAmount);
 
-      // Event should emit actualBuyReceived (99), NOT buyAmountIn (100)
-      const expectedDelivered = ethers.parseEther("99"); // 100 - 1% fee on first hop
-      await expect(pair.connect(taker).fillOrder(0, sellAmount))
+      const expectedDelivered = ethers.parseEther("98.01");
+      await expect(pair.connect(taker).fillOrder(0, sellAmount, MAX_BUY))
         .to.emit(pair, "OrderFilled")
         .withArgs(0, taker.address, sellAmount, expectedDelivered);
     });
@@ -404,7 +513,7 @@ describe("OTCFactory + OTCPair", function () {
 
   describe("Pair isolation", function () {
     it("should keep pairs completely separate", async function () {
-      const { factory, tokenA, tokenB, maker, taker } = await loadFixture(deployFixture);
+      const { factory, tokenA, tokenB, maker } = await loadFixture(deployFixture);
 
       const MockERC20 = await ethers.getContractFactory("MockERC20");
       const tokenC = await MockERC20.deploy("Token C", "TKC", 18);
@@ -424,11 +533,15 @@ describe("OTCFactory + OTCPair", function () {
 
       // Deposit into pair 1
       await tokenA.connect(maker).approve(pair1.target, ethers.parseEther("100"));
-      await pair1.connect(maker).createOrder(sell0_1, ethers.parseEther("100"), ethers.parseEther("100"));
+      await pair1.connect(maker).createOrder(
+        sell0_1, ethers.parseEther("100"), ethers.parseEther("100"), DEFAULT_MIN_BUY_BPS
+      );
 
       // Deposit into pair 2
       await tokenA.connect(maker).approve(pair2.target, ethers.parseEther("200"));
-      await pair2.connect(maker).createOrder(sell0_2, ethers.parseEther("200"), ethers.parseEther("200"));
+      await pair2.connect(maker).createOrder(
+        sell0_2, ethers.parseEther("200"), ethers.parseEther("200"), DEFAULT_MIN_BUY_BPS
+      );
 
       // Pair 1 holds 100 tokenA, pair 2 holds 200 tokenA — fully isolated
       expect(await tokenA.balanceOf(pair1.target)).to.equal(ethers.parseEther("100"));
@@ -443,13 +556,13 @@ describe("OTCFactory + OTCPair", function () {
 
   describe("cancelOrderTo", () => {
     it("sends refund to specified recipient", async () => {
-      const { pair, tokenA, tokenB, sellToken0, maker } = await loadFixture(deployWithPairFixture);
+      const { pair, tokenA, sellToken0, maker } = await loadFixture(deployWithPairFixture);
       const sellAmt = ethers.parseEther("100");
       const [, , , recipient] = await ethers.getSigners();
 
       // sellToken0 flag always makes tokenA the sell token in this fixture
       await tokenA.connect(maker).approve(pair.target, sellAmt);
-      await pair.connect(maker).createOrder(sellToken0, sellAmt, sellAmt);
+      await pair.connect(maker).createOrder(sellToken0, sellAmt, sellAmt, DEFAULT_MIN_BUY_BPS);
 
       const before = await tokenA.balanceOf(recipient.address);
       // Event should emit recipient, not maker
@@ -469,11 +582,11 @@ describe("OTCFactory + OTCPair", function () {
       const [, , , recipient] = await ethers.getSigners();
 
       await tokenA.connect(maker).approve(pair.target, sellAmt);
-      await pair.connect(maker).createOrder(sellToken0, sellAmt, sellAmt);
+      await pair.connect(maker).createOrder(sellToken0, sellAmt, sellAmt, DEFAULT_MIN_BUY_BPS);
 
       // Fill 60% — taker pays with tokenB (the buy token)
       await tokenB.connect(taker).approve(pair.target, ethers.parseEther("60"));
-      await pair.connect(taker).fillOrder(0, ethers.parseEther("60"));
+      await pair.connect(taker).fillOrder(0, ethers.parseEther("60"), MAX_BUY);
 
       const before = await tokenA.balanceOf(recipient.address);
       await pair.connect(maker).cancelOrderTo(0, recipient.address);
@@ -484,7 +597,9 @@ describe("OTCFactory + OTCPair", function () {
       const { pair, tokenA, sellToken0, maker } = await loadFixture(deployWithPairFixture);
 
       await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
-      await pair.connect(maker).createOrder(sellToken0, ethers.parseEther("100"), ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(
+        sellToken0, ethers.parseEther("100"), ethers.parseEther("100"), DEFAULT_MIN_BUY_BPS
+      );
 
       await expect(
         pair.connect(maker).cancelOrderTo(0, ethers.ZeroAddress)
@@ -495,7 +610,9 @@ describe("OTCFactory + OTCPair", function () {
       const { pair, tokenA, sellToken0, maker, taker } = await loadFixture(deployWithPairFixture);
 
       await tokenA.connect(maker).approve(pair.target, ethers.parseEther("100"));
-      await pair.connect(maker).createOrder(sellToken0, ethers.parseEther("100"), ethers.parseEther("100"));
+      await pair.connect(maker).createOrder(
+        sellToken0, ethers.parseEther("100"), ethers.parseEther("100"), DEFAULT_MIN_BUY_BPS
+      );
 
       await expect(
         pair.connect(taker).cancelOrderTo(0, taker.address)

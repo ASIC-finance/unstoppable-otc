@@ -6,5 +6,6 @@ cache_path = "foundry-cache"
 libs = ["node_modules", "lib"]
 solc_version = "0.8.28"
 optimizer = true
-optimizer_runs = 200
+optimizer_runs = 1_000_000
 fuzz.runs = 256
+evm_version = "cancun"

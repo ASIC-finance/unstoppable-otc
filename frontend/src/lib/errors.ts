@@ -63,28 +63,42 @@ export function parseContractError(error: unknown): ParsedTxError {
 function humanizeContractError(name: string | undefined): string | undefined {
   if (!name) return undefined
   switch (name) {
+    // ── OTCPair ────────────────────────────────────────────────
     case 'ZeroAmount':
       return 'Amount cannot be zero.'
-    case 'ZeroCost':
-      return 'This fill would round to zero — try a larger amount.'
     case 'ExceedsRemaining':
       return 'That is more than the remaining size of this order.'
+    case 'ExceedsMaxBuy':
+      return 'Price moved — filling would cost more buy-token than your cap allows.'
     case 'OrderNotActive':
       return 'This order is already filled or cancelled.'
     case 'NotMaker':
       return 'Only the order maker can cancel this order.'
-    case 'ZeroAddress':
-      return 'Recipient cannot be the zero address.'
     case 'InvalidActiveIndex':
       return 'Pair state inconsistency — refresh and try again.'
+    case 'InvalidMinBuyBps':
+      return 'Slippage tolerance must be between 1 and 10000 basis points.'
+    case 'SlippageExceeded':
+      return 'Maker short-received due to fee-on-transfer; this order needs a higher slippage tolerance to fill.'
+    case 'ReentrancyGuardReentrantCall':
+      return 'Blocked: the call re-entered the pair.'
+    // ── OTCFactory ─────────────────────────────────────────────
     case 'IdenticalTokens':
       return 'Cannot create a pair for the same token.'
     case 'PairExists':
       return 'A pair already exists for these tokens.'
+    case 'NotAContract':
+      return 'At least one of the addresses has no contract code — must be a deployed ERC-20.'
+    // ── Shared ─────────────────────────────────────────────────
+    case 'ZeroAddress':
+      return 'Recipient cannot be the zero address.'
+    // ── ERC-20 ─────────────────────────────────────────────────
     case 'ERC20InsufficientBalance':
       return 'Insufficient token balance.'
     case 'ERC20InsufficientAllowance':
       return 'Insufficient approval — approve the pair to spend this token first.'
+    case 'SafeERC20FailedOperation':
+      return 'Token transfer failed — the token returned false or reverted.'
     default:
       return undefined
   }

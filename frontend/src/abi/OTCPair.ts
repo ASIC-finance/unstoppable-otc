@@ -7,14 +7,25 @@ export const OTCPairABI = [
     stateMutability: "nonpayable",
     type: "constructor",
   },
+
+  // ── Errors ─────────────────────────────────────────────────────
+  { inputs: [], name: "ExceedsMaxBuy", type: "error" },
   { inputs: [], name: "ExceedsRemaining", type: "error" },
   { inputs: [], name: "InvalidActiveIndex", type: "error" },
+  { inputs: [], name: "InvalidMinBuyBps", type: "error" },
   { inputs: [], name: "NotMaker", type: "error" },
   { inputs: [], name: "OrderNotActive", type: "error" },
   { inputs: [], name: "ReentrancyGuardReentrantCall", type: "error" },
+  {
+    inputs: [{ name: "token", type: "address" }],
+    name: "SafeERC20FailedOperation",
+    type: "error",
+  },
+  { inputs: [], name: "SlippageExceeded", type: "error" },
   { inputs: [], name: "ZeroAddress", type: "error" },
   { inputs: [], name: "ZeroAmount", type: "error" },
-  { inputs: [], name: "ZeroCost", type: "error" },
+
+  // ── Events ─────────────────────────────────────────────────────
   {
     anonymous: false,
     inputs: [
@@ -32,6 +43,7 @@ export const OTCPairABI = [
       { indexed: false, name: "sellToken0", type: "bool" },
       { indexed: false, name: "sellAmount", type: "uint256" },
       { indexed: false, name: "buyAmount", type: "uint256" },
+      { indexed: false, name: "minBuyBps", type: "uint16" },
     ],
     name: "OrderCreated",
     type: "event",
@@ -47,6 +59,8 @@ export const OTCPairABI = [
     name: "OrderFilled",
     type: "event",
   },
+
+  // ── Writes ─────────────────────────────────────────────────────
   {
     inputs: [{ name: "orderId", type: "uint256" }],
     name: "cancelOrder",
@@ -69,12 +83,26 @@ export const OTCPairABI = [
       { name: "sellToken0_", type: "bool" },
       { name: "sellAmount", type: "uint256" },
       { name: "buyAmount", type: "uint256" },
+      { name: "minBuyBps", type: "uint16" },
     ],
     name: "createOrder",
     outputs: [{ name: "orderId", type: "uint256" }],
     stateMutability: "nonpayable",
     type: "function",
   },
+  {
+    inputs: [
+      { name: "orderId", type: "uint256" },
+      { name: "sellAmountOut", type: "uint256" },
+      { name: "maxBuyAmountIn", type: "uint256" },
+    ],
+    name: "fillOrder",
+    outputs: [],
+    stateMutability: "nonpayable",
+    type: "function",
+  },
+
+  // ── Reads ──────────────────────────────────────────────────────
   {
     inputs: [],
     name: "factory",
@@ -83,13 +111,36 @@ export const OTCPairABI = [
     type: "function",
   },
   {
+    inputs: [{ name: "maker", type: "address" }],
+    name: "getActiveMakerOrderCount",
+    outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
     inputs: [
-      { name: "orderId", type: "uint256" },
-      { name: "sellAmountOut", type: "uint256" },
+      { name: "maker", type: "address" },
+      { name: "offset", type: "uint256" },
+      { name: "limit", type: "uint256" },
     ],
-    name: "fillOrder",
-    outputs: [],
-    stateMutability: "nonpayable",
+    name: "getActiveMakerOrders",
+    outputs: [
+      { name: "ids", type: "uint256[]" },
+      {
+        components: [
+          { name: "maker", type: "address" },
+          { name: "sellToken0", type: "bool" },
+          { name: "status", type: "uint8" },
+          { name: "minBuyBps", type: "uint16" },
+          { name: "sellAmount", type: "uint256" },
+          { name: "buyAmount", type: "uint256" },
+          { name: "filledSellAmount", type: "uint256" },
+        ],
+        name: "result",
+        type: "tuple[]",
+      },
+    ],
+    stateMutability: "view",
     type: "function",
   },
   {
@@ -111,10 +162,11 @@ export const OTCPairABI = [
         components: [
           { name: "maker", type: "address" },
           { name: "sellToken0", type: "bool" },
+          { name: "status", type: "uint8" },
+          { name: "minBuyBps", type: "uint16" },
           { name: "sellAmount", type: "uint256" },
           { name: "buyAmount", type: "uint256" },
           { name: "filledSellAmount", type: "uint256" },
-          { name: "status", type: "uint8" },
         ],
         name: "result",
         type: "tuple[]",
@@ -124,28 +176,8 @@ export const OTCPairABI = [
     type: "function",
   },
   {
-    inputs: [{ name: "orderId", type: "uint256" }],
-    name: "getOrder",
-    outputs: [
-      {
-        components: [
-          { name: "maker", type: "address" },
-          { name: "sellToken0", type: "bool" },
-          { name: "sellAmount", type: "uint256" },
-          { name: "buyAmount", type: "uint256" },
-          { name: "filledSellAmount", type: "uint256" },
-          { name: "status", type: "uint8" },
-        ],
-        name: "",
-        type: "tuple",
-      },
-    ],
-    stateMutability: "view",
-    type: "function",
-  },
-  {
-    inputs: [],
-    name: "getOrderCount",
+    inputs: [{ name: "maker", type: "address" }],
+    name: "getMakerOrderCount",
     outputs: [{ name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
@@ -163,10 +195,11 @@ export const OTCPairABI = [
         components: [
           { name: "maker", type: "address" },
           { name: "sellToken0", type: "bool" },
+          { name: "status", type: "uint8" },
+          { name: "minBuyBps", type: "uint16" },
           { name: "sellAmount", type: "uint256" },
           { name: "buyAmount", type: "uint256" },
           { name: "filledSellAmount", type: "uint256" },
-          { name: "status", type: "uint8" },
         ],
         name: "result",
         type: "tuple[]",
@@ -176,9 +209,54 @@ export const OTCPairABI = [
     type: "function",
   },
   {
-    inputs: [{ name: "maker", type: "address" }],
-    name: "getMakerOrderCount",
+    inputs: [{ name: "orderId", type: "uint256" }],
+    name: "getOrder",
+    outputs: [
+      {
+        components: [
+          { name: "maker", type: "address" },
+          { name: "sellToken0", type: "bool" },
+          { name: "status", type: "uint8" },
+          { name: "minBuyBps", type: "uint16" },
+          { name: "sellAmount", type: "uint256" },
+          { name: "buyAmount", type: "uint256" },
+          { name: "filledSellAmount", type: "uint256" },
+        ],
+        name: "",
+        type: "tuple",
+      },
+    ],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [],
+    name: "getOrderCount",
     outputs: [{ name: "", type: "uint256" }],
+    stateMutability: "view",
+    type: "function",
+  },
+  {
+    inputs: [
+      { name: "fromId", type: "uint256" },
+      { name: "toId", type: "uint256" },
+    ],
+    name: "getOrders",
+    outputs: [
+      {
+        components: [
+          { name: "maker", type: "address" },
+          { name: "sellToken0", type: "bool" },
+          { name: "status", type: "uint8" },
+          { name: "minBuyBps", type: "uint16" },
+          { name: "sellAmount", type: "uint256" },
+          { name: "buyAmount", type: "uint256" },
+          { name: "filledSellAmount", type: "uint256" },
+        ],
+        name: "",
+        type: "tuple[]",
+      },
+    ],
     stateMutability: "view",
     type: "function",
   },
